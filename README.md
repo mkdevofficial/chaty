@@ -144,3 +144,29 @@ flutter analyze
 - **Media & Audio**: `image_picker`, `image_cropper`, `file_picker`, `record: ^5.2.1`, `just_audio: ^0.10.5`
 - **Vector Graphics**: `flutter_svg: ^2.1.0`
 - **Localization**: Custom native AR/EN dictionary with `AppLocalizations` supporting dynamic language toggle without restarting.
+
+---
+
+## 🔍 Known Server Issues & Client Tolerances
+
+During contract verification against the live VPS deployment (`http://185.196.20.220:5050`), several minor API contract deviations were observed. The Flutter client has been made resilient to handle both the strict contract and live server quirks:
+
+1. **Conversation Peer User Field**:
+   - *Contract*: `Conversation` contains `peer` (full User object).
+   - *Live Server*: Emits `user` (full User object).
+   - *Client Handling*: The client checks `json['peer'] ?? json['user'] ?? json['other_user']`.
+2. **Follow / Unfollow Request & Response**:
+   - *Contract*: `POST /api/friends/{userId}` and `DELETE /api/friends/{userId}` return the updated `User`.
+   - *Live Server*: Returns `{"following": true/false, "user": {...}}`. Additionally, the server rejects requests without a body (`400 VALIDATION_ERROR`).
+   - *Client Handling*: The client sends an empty JSON body `{}` and extracts `response['user'] ?? response`.
+3. **Stories List**:
+   - *Contract*: `GET /api/stories` returns `{ "groups": [...] }`.
+   - *Live Server*: Returns a raw JSON array of story groups `[{"user": ..., "stories": [...]}]` directly, with individual stories using `viewer_count` rather than `view_count`.
+   - *Client Handling*: The client supports both a raw array and a `{ "groups": [...] }` wrapper, and checks `view_count ?? viewer_count`.
+4. **Story Viewers List**:
+   - *Contract*: Returns viewers array where each viewer item has `user` and `viewed_at`.
+   - *Client Handling*: Checks `item['user'] ?? item['viewer'] ?? item`.
+5. **Friends Following & Followers List**:
+   - *Contract*: Returns `users` wrapper.
+   - *Client Handling*: Supports both raw array and `response['users'] ?? response['following'] ?? response['followers']`.
+

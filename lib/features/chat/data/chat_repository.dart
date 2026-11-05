@@ -117,8 +117,7 @@ class ChatRepository {
       '/conversations/$conversationId/messages',
       data: {
         'type': 'sticker',
-        'sticker_pack': pack,
-        'sticker_id': id,
+        'sticker': {'pack': pack, 'id': id},
         'client_id': clientId,
       },
     );
@@ -137,20 +136,40 @@ class ChatRepository {
     required File file,
     required String type, // 'image', 'audio', 'file'
     required String clientId,
+    int? durationMs,
+    String? caption,
     String? text,
     void Function(int sent, int total)? onProgress,
   }) async {
     final fileName = file.path.split('/').last;
-    final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+    final detectedMime = lookupMimeType(file.path) ?? 'application/octet-stream';
+
+    String effectiveMime = detectedMime;
+    if (type == 'audio') {
+      if (fileName.endsWith('.m4a') || fileName.endsWith('.mp4')) {
+        effectiveMime = 'audio/mp4';
+      } else if (fileName.endsWith('.aac')) {
+        effectiveMime = 'audio/aac';
+      }
+    } else if (type == 'image') {
+      if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+        effectiveMime = 'image/jpeg';
+      } else if (fileName.endsWith('.png')) {
+        effectiveMime = 'image/png';
+      }
+    }
+
+    final finalCaption = caption ?? text;
 
     final formData = FormData.fromMap({
       'type': type,
       'client_id': clientId,
-      if (text != null && text.isNotEmpty) 'text': text,
+      if (durationMs != null && durationMs > 0) 'duration_ms': durationMs.toString(),
+      if (finalCaption != null && finalCaption.isNotEmpty) 'caption': finalCaption,
       'file': await MultipartFile.fromFile(
         file.path,
         filename: fileName,
-        contentType: MediaType.parse(mimeType),
+        contentType: MediaType.parse(effectiveMime),
       ),
     });
 

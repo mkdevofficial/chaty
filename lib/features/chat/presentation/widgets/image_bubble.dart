@@ -1,13 +1,11 @@
 import 'dart:io';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/config/app_config.dart';
-import '../../../../core/providers/core_providers.dart';
+import '../../../../core/widgets/authorized_image.dart';
 import '../../domain/message_model.dart';
 import 'fullscreen_image_viewer.dart';
 
-class ImageBubble extends ConsumerWidget {
+class ImageBubble extends StatelessWidget {
   final MessageModel message;
   final bool isOutgoing;
 
@@ -18,9 +16,8 @@ class ImageBubble extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final authStorage = ref.watch(authStorageProvider);
     final fileId = message.attachment?.fileId;
     final localPath = message.localFilePath;
 
@@ -36,33 +33,11 @@ class ImageBubble extends ConsumerWidget {
         height: 240,
       );
     } else if (fileId != null) {
-      final url = AppConfig.getFileUrl(fileId);
-      imageContent = FutureBuilder<String?>(
-        future: authStorage.getToken(),
-        builder: (context, snapshot) {
-          final token = snapshot.data;
-          final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
-
-          return CachedNetworkImage(
-            imageUrl: url,
-            httpHeaders: headers,
-            fit: BoxFit.cover,
-            width: 240,
-            height: 240,
-            placeholder: (context, url) => Container(
-              width: 240,
-              height: 240,
-              color: theme.colorScheme.surfaceContainerHighest,
-              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-            errorWidget: (context, url, error) => Container(
-              width: 240,
-              height: 240,
-              color: theme.colorScheme.surfaceContainerHighest,
-              child: const Icon(Icons.broken_image, size: 48),
-            ),
-          );
-        },
+      imageContent = AuthorizedImage(
+        fileId: fileId,
+        width: 240,
+        height: 240,
+        fit: BoxFit.cover,
       );
     } else {
       imageContent = Container(

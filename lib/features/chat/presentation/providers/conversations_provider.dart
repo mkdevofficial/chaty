@@ -70,26 +70,33 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   }
 
   void _handleWsEvent(Map<String, dynamic> event) {
-    final type = event['type'] as String?;
+    final eventName = (event['event'] ?? event['type']) as String?;
+    final eventData = (event['data'] is Map<String, dynamic>)
+        ? event['data'] as Map<String, dynamic>
+        : event;
 
-    if (type == 'message.new' && event['message'] != null) {
+    if (eventName == 'message.new') {
       try {
-        final message = MessageModel.fromJson(event['message'] as Map<String, dynamic>);
-        _onNewMessage(message);
+        final rawMsg = eventData['message'] ?? eventData;
+        if (rawMsg is Map<String, dynamic>) {
+          final message = MessageModel.fromJson(rawMsg);
+          _onNewMessage(message);
+        }
       } catch (_) {}
-    } else if (type == 'presence' && event['user_id'] != null) {
-      final userId = event['user_id'] is int
-          ? event['user_id'] as int
-          : int.tryParse(event['user_id'].toString());
-      final isOnline = event['online'] == true || event['online'] == 1;
-      final lastSeen = event['last_seen'] as String?;
+    } else if (eventName == 'presence') {
+      final userIdRaw = eventData['user_id'] ?? event['user_id'];
+      final userId =
+          userIdRaw is int ? userIdRaw : int.tryParse(userIdRaw?.toString() ?? '');
+      final isOnline = (eventData['online'] ?? event['online']) == true ||
+          (eventData['online'] ?? event['online']) == 1;
+      final lastSeen = (eventData['last_seen'] ?? event['last_seen']) as String?;
 
       if (userId != null) {
         state = state.copyWith(
           conversations: state.conversations.map((c) {
-            if (c.otherUser.id == userId) {
+            if (c.peer.id == userId) {
               return c.copyWith(
-                otherUser: c.otherUser.copyWith(
+                peer: c.peer.copyWith(
                   online: isOnline,
                   lastSeen: lastSeen,
                 ),

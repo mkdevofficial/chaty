@@ -51,7 +51,12 @@ class _FullscreenImageViewerState extends ConsumerState<FullscreenImageViewer> {
         future: authStorage.getToken(),
         builder: (context, snapshot) {
           final token = snapshot.data;
-          final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
+          if (token == null || token.isEmpty) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            );
+          }
+          final headers = {'Authorization': 'Bearer $token'};
 
           return CachedNetworkImage(
             imageUrl: widget.imageUrl!,

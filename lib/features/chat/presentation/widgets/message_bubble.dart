@@ -52,7 +52,7 @@ class MessageBubble extends StatelessWidget {
       messageContent = Text(message.text ?? '');
     }
 
-    // Stickers are rendered without bubble background
+    // Stickers are rendered with high-contrast translucent pill for timestamp
     if (message.isSticker) {
       return Align(
         alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
@@ -63,7 +63,31 @@ class MessageBubble extends StatelessWidget {
                 isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
               messageContent,
-              _buildStatusRow(theme, timeStr),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      timeStr,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (isOutgoing) ...[
+                      const SizedBox(width: 4),
+                      _buildStatusIcon(theme, overrideColor: Colors.white70),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -140,25 +164,26 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusIcon(ThemeData theme) {
+  Widget _buildStatusIcon(ThemeData theme, {Color? overrideColor}) {
+    final defaultColor = overrideColor ?? theme.colorScheme.onPrimary.withValues(alpha: 0.7);
     switch (message.status) {
       case MessageStatus.pending:
         return Icon(
           Icons.access_time_rounded,
           size: 13,
-          color: theme.colorScheme.onPrimary.withValues(alpha: 0.7),
+          color: defaultColor,
         );
       case MessageStatus.sent:
         return Icon(
           Icons.check,
           size: 14,
-          color: theme.colorScheme.onPrimary.withValues(alpha: 0.7),
+          color: defaultColor,
         );
       case MessageStatus.delivered:
         return Icon(
           Icons.done_all,
           size: 14,
-          color: theme.colorScheme.onPrimary.withValues(alpha: 0.8),
+          color: overrideColor ?? theme.colorScheme.onPrimary.withValues(alpha: 0.8),
         );
       case MessageStatus.read:
         return const Icon(

@@ -13,6 +13,7 @@ import '../../../auth/presentation/auth_provider.dart';
 import '../../../profile/presentation/user_profile_screen.dart';
 import '../../domain/conversation_model.dart';
 import '../providers/chat_messages_provider.dart';
+import '../providers/conversations_provider.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/sticker_picker_sheet.dart';
 import '../widgets/voice_recorder_overlay.dart';
@@ -113,9 +114,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     try {
-      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
       if (picked != null) {
-        ref
+        await ref
             .read(chatMessagesProvider(widget.conversation.id).notifier)
             .sendMedia(
               file: File(picked.path),
@@ -123,14 +129,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             );
         _scrollToBottom();
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send image: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _pickAndSendFile() async {
     try {
       final picked = await FilePicker.pickFiles();
       if (picked.isNotEmpty && picked.first.path != null) {
-        ref
+        await ref
             .read(chatMessagesProvider(widget.conversation.id).notifier)
             .sendMedia(
               file: File(picked.first.path!),
@@ -138,7 +150,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             );
         _scrollToBottom();
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send file: $e')),
+        );
+      }
+    }
   }
 
   void _showAttachMenu() {
@@ -261,7 +279,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final wallpaper = ref.watch(themeProvider).wallpaper;
 
     final chatState = ref.watch(chatMessagesProvider(widget.conversation.id));
-    final otherUser = widget.conversation.otherUser;
+    final convState = ref.watch(conversationsProvider);
+    final activeConv = convState.conversations
+        .where((c) => c.id == widget.conversation.id)
+        .firstOrNull ?? widget.conversation;
+    final otherUser = activeConv.peer;
 
     // Messages in reversed order for standard messaging ListView
     final messages = chatState.messages.reversed.toList();
@@ -434,11 +456,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             _isRecording
                 ? VoiceRecorderOverlay(
                     key: _recorderKey,
-                    onRecordingComplete: (file) {
+                    onSend: (file, durationMs) {
                       setState(() => _isRecording = false);
                       ref
                           .read(chatMessagesProvider(widget.conversation.id).notifier)
-                          .sendMedia(file: file, type: 'audio');
+                          .sendMedia(
+                            file: file,
+                            type: 'audio',
+                            durationMs: durationMs,
+                          );
                       _scrollToBottom();
                     },
                     onCancel: () {
@@ -514,6 +540,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                   )
                 : GestureDetector(
+                    onTap: () async {
+                      final granted =
+                          await PermissionUtils.requestMicrophonePermission(context);
+                      if (granted) {
+                        setState(() => _isRecording = true);
+                      }
+                    },
                     onLongPressStart: (_) async {
                       final granted =
                           await PermissionUtils.requestMicrophonePermission(context);
@@ -522,7 +555,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       }
                     },
                     onLongPressEnd: (_) {
-                      _recorderKey.currentState?.stopAndSend();
+                      _recorderKey.currentState?.stopRecording();
                     },
                     onLongPressMoveUpdate: (details) {
                       _recorderKey.currentState?.onDragUpdate(details);

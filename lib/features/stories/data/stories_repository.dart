@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import '../../../core/network/api_client.dart';
+import '../../auth/domain/user_model.dart';
 import '../domain/story_model.dart';
 
 class StoriesRepository {
@@ -14,26 +15,31 @@ class StoriesRepository {
     final response = await apiClient.get('/stories');
     final List<dynamic> list = response is List
         ? response
-        : (response['stories'] as List<dynamic>? ?? []);
-
-    final Map<int, List<StoryModel>> userStoryMap = {};
-
-    for (final item in list) {
-      final story = StoryModel.fromJson(item as Map<String, dynamic>);
-      userStoryMap.putIfAbsent(story.userId, () => []).add(story);
-    }
+        : (response['groups'] as List<dynamic>? ??
+            response['stories'] as List<dynamic>? ??
+            []);
 
     final List<StoryGroup> groups = [];
-    for (final entry in userStoryMap.entries) {
-      if (entry.value.isNotEmpty) {
-        final user = entry.value.first.user;
-        if (user != null) {
-          groups.add(
-            StoryGroup(
-              user: user,
-              stories: entry.value,
-            ),
-          );
+    for (final item in list) {
+      if (item is Map<String, dynamic>) {
+        if (item.containsKey('stories') && item.containsKey('user')) {
+          groups.add(StoryGroup.fromJson(item));
+        } else {
+          // If flat list of stories returned
+          final story = StoryModel.fromJson(item);
+          final user = story.user ??
+              UserModel(
+                id: story.userId,
+                username: 'user_${story.userId}',
+                displayName: 'User ${story.userId}',
+              );
+          final existingGroup =
+              groups.where((g) => g.user.id == story.userId).firstOrNull;
+          if (existingGroup != null) {
+            existingGroup.stories.add(story);
+          } else {
+            groups.add(StoryGroup(user: user, stories: [story]));
+          }
         }
       }
     }
@@ -43,9 +49,17 @@ class StoriesRepository {
   Future<StoryModel> createImageStory({
     required File imageFile,
     String? caption,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final fileName = imageFile.path.split('/').last;
-    final mimeType = lookupMimeType(imageFile.path) ?? 'image/jpeg';
+    final detectedMime = lookupMimeType(imageFile.path) ?? 'image/jpeg';
+
+    String effectiveMime = detectedMime;
+    if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+      effectiveMime = 'image/jpeg';
+    } else if (fileName.endsWith('.png')) {
+      effectiveMime = 'image/png';
+    }
 
     final formData = FormData.fromMap({
       'type': 'image',
@@ -53,11 +67,15 @@ class StoriesRepository {
       'file': await MultipartFile.fromFile(
         imageFile.path,
         filename: fileName,
-        contentType: MediaType.parse(mimeType),
+        contentType: MediaType.parse(effectiveMime),
       ),
     });
 
-    final response = await apiClient.postMultipart('/stories', formData: formData);
+    final response = await apiClient.postMultipart(
+      '/stories',
+      formData: formData,
+      onSendProgress: onProgress,
+    );
     final data = (response is Map<String, dynamic> && response['story'] != null)
         ? response['story'] as Map<String, dynamic>
         : response as Map<String, dynamic>;
@@ -85,7 +103,7 @@ class StoriesRepository {
 
   Future<void> markStoryViewed(int storyId) async {
     try {
-      await apiClient.post('/stories/$storyId/view');
+      await apiClient.post('/stories/$storyId/view', data: {});
     } catch (_) {}
   }
 
@@ -94,7 +112,10 @@ class StoriesRepository {
     final List<dynamic> list = response is List
         ? response
         : (response['viewers'] as List<dynamic>? ?? []);
-    return list.map((e) => StoryViewerModel.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map((e) => StoryViewerModel.fromJson(e))
+        .toList();
   }
 
   Future<void> deleteStory(int storyId) async {

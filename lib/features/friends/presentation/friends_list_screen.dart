@@ -157,8 +157,16 @@ class _FriendsListScreenState extends ConsumerState<FriendsListScreen>
                   ? theme.colorScheme.surfaceContainerHighest
                   : null,
             ),
-            onPressed: () {
-              ref.read(friendsProvider.notifier).toggleFollow(user);
+            onPressed: () async {
+              try {
+                await ref.read(friendsProvider.notifier).toggleFollow(user);
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update follow status: $e')),
+                  );
+                }
+              }
             },
             child: Text(
               user.isFollowing ? strings.unfollow : strings.follow,

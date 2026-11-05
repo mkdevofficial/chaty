@@ -27,11 +27,13 @@ class ChatyAvatar extends ConsumerWidget {
   });
 
   String _getInitials(String input) {
-    final clean = input.trim();
-    if (clean.isEmpty) return 'C';
-    final parts = clean.split(RegExp(r'\s+'));
+    final clean = input.replaceFirst('@', '').trim();
+    if (clean.isEmpty) return 'U';
+    final parts = clean.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.length > 1) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return (first + second).toUpperCase();
     }
     return clean.substring(0, clean.length >= 2 ? 2 : 1).toUpperCase();
   }
@@ -62,7 +64,10 @@ class ChatyAvatar extends ConsumerWidget {
         future: authStorage.getToken(),
         builder: (context, snapshot) {
           final token = snapshot.data;
-          final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
+          if (token == null || token.isEmpty) {
+            return _buildInitialsAvatar();
+          }
+          final headers = {'Authorization': 'Bearer $token'};
 
           return CachedNetworkImage(
             imageUrl: AppConfig.getFileUrl(avatarFileId!),

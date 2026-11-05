@@ -119,6 +119,7 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
                             onPressed: () => _startChatWithUser(user),
                           ),
                           OutlinedButton(
+                            key: Key('follow_button_${user.id}'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                               minimumSize: const Size(60, 36),
@@ -126,8 +127,22 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
                                   ? theme.colorScheme.surfaceContainerHighest
                                   : null,
                             ),
-                            onPressed: () {
-                              ref.read(friendsProvider.notifier).toggleFollow(user);
+                            onPressed: () async {
+                              try {
+                                await ref
+                                    .read(friendsProvider.notifier)
+                                    .toggleFollow(user);
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Failed to update follow status: $e',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
                             },
                             child: Text(
                               user.isFollowing ? strings.unfollow : strings.follow,

@@ -96,7 +96,24 @@ class WebSocketService {
       if (data is String) {
         final decoded = jsonDecode(data);
         if (decoded is Map<String, dynamic>) {
-          _eventController.add(decoded);
+          final eventName = decoded['event'] ?? decoded['type'];
+          final eventData = decoded['data'] ?? decoded;
+
+          if (kDebugMode) {
+            debugPrint('[WebSocket] INCOMING EVENT: $eventName | DATA: $eventData');
+          }
+
+          // Normalize so all listeners can consume either contract style or legacy
+          final Map<String, dynamic> normalized = Map<String, dynamic>.from(decoded);
+          normalized['event'] = eventName;
+          normalized['type'] = eventName;
+
+          if (eventData is Map<String, dynamic>) {
+            normalized.addAll(eventData);
+            normalized['data'] = eventData;
+          }
+
+          _eventController.add(normalized);
         }
       }
     } catch (e) {
@@ -125,7 +142,7 @@ class WebSocketService {
     _pingTimer?.cancel();
     _pingTimer = Timer.periodic(const Duration(seconds: 25), (timer) {
       if (isConnected) {
-        send({'type': 'ping'});
+        send({'event': 'ping'});
       }
     });
   }
@@ -154,9 +171,11 @@ class WebSocketService {
 
   void sendTyping({required int conversationId, required bool isTyping}) {
     send({
-      'type': 'typing',
-      'conversation_id': conversationId,
-      'is_typing': isTyping,
+      'event': 'typing',
+      'data': {
+        'conversation_id': conversationId,
+        'is_typing': isTyping,
+      },
     });
   }
 

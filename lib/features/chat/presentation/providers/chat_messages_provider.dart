@@ -81,38 +81,60 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
   }
 
   void _handleWsEvent(Map<String, dynamic> event) {
-    final type = event['type'] as String?;
+    final eventName = (event['event'] ?? event['type']) as String?;
+    final eventData = (event['data'] is Map<String, dynamic>)
+        ? event['data'] as Map<String, dynamic>
+        : event;
 
-    if (type == 'message.new' && event['message'] != null) {
+    if (eventName == 'message.new') {
       try {
-        final message = MessageModel.fromJson(event['message'] as Map<String, dynamic>);
-        if (message.conversationId == conversationId) {
-          _onIncomingMessage(message);
-          ref.read(conversationsProvider.notifier).markAsRead(conversationId);
+        final rawMsg = eventData['message'] ?? eventData;
+        if (rawMsg is Map<String, dynamic>) {
+          final message = MessageModel.fromJson(rawMsg);
+          if (message.conversationId == conversationId) {
+            _onIncomingMessage(message);
+            ref.read(conversationsProvider.notifier).markAsRead(conversationId);
+          }
         }
       } catch (_) {}
-    } else if (type == 'message.status' && event['message_id'] != null) {
-      final msgId = event['message_id'] is int
-          ? event['message_id'] as int
-          : int.tryParse(event['message_id'].toString());
-      final statusStr = event['status'] as String?;
-      if (msgId != null && statusStr != null) {
+    } else if (eventName == 'message.status') {
+      final statusStr = (eventData['status'] ?? event['status']) as String?;
+      if (statusStr != null) {
         final newStatus = MessageStatusExtension.fromString(statusStr);
-        _updateMessageStatus(msgId, newStatus);
+        final List<int> idsToUpdate = [];
+
+        final rawIds = eventData['message_ids'] ?? event['message_ids'];
+        if (rawIds is List) {
+          for (final item in rawIds) {
+            final id = item is int ? item : int.tryParse(item.toString());
+            if (id != null) idsToUpdate.add(id);
+          }
+        }
+
+        final singleId = eventData['message_id'] ?? event['message_id'];
+        if (singleId != null) {
+          final id = singleId is int ? singleId : int.tryParse(singleId.toString());
+          if (id != null && !idsToUpdate.contains(id)) idsToUpdate.add(id);
+        }
+
+        if (idsToUpdate.isNotEmpty) {
+          _updateMessageStatuses(idsToUpdate, newStatus);
+        }
       }
-    } else if (type == 'typing' && event['conversation_id'] != null) {
-      final convId = event['conversation_id'] is int
-          ? event['conversation_id'] as int
-          : int.tryParse(event['conversation_id'].toString());
+    } else if (eventName == 'typing') {
+      final convIdRaw = eventData['conversation_id'] ?? event['conversation_id'];
+      final convId =
+          convIdRaw is int ? convIdRaw : int.tryParse(convIdRaw?.toString() ?? '');
 
       if (convId == conversationId) {
         final currentUserId = ref.read(authProvider).user?.id;
-        final senderId = event['user_id'] is int
-            ? event['user_id'] as int
-            : int.tryParse(event['user_id'].toString());
+        final senderIdRaw = eventData['user_id'] ?? event['user_id'];
+        final senderId =
+            senderIdRaw is int ? senderIdRaw : int.tryParse(senderIdRaw?.toString() ?? '');
 
         if (senderId != currentUserId) {
-          final isTyping = event['is_typing'] == true || event['is_typing'] == 1;
+          final isTyping = (eventData['is_typing'] ?? event['is_typing']) == true ||
+              (eventData['is_typing'] ?? event['is_typing']) == 1;
           _setTyping(isTyping);
         }
       }
@@ -138,7 +160,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
     if (message.clientId != null) {
       final optIndex = list.indexWhere((m) => m.clientId == message.clientId);
       if (optIndex != -1) {
-        list[optIndex] = message;
+        list[optIndex] = message.copyWith(localFilePath: list[optIndex].localFilePath);
         state = state.copyWith(messages: list);
         return;
       }
@@ -152,9 +174,14 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
   }
 
   void _updateMessageStatus(int messageId, MessageStatus status) {
+    _updateMessageStatuses([messageId], status);
+  }
+
+  void _updateMessageStatuses(List<int> messageIds, MessageStatus status) {
+    final idSet = messageIds.toSet();
     state = state.copyWith(
       messages: state.messages.map((m) {
-        if (m.id == messageId) {
+        if (idSet.contains(m.id)) {
           return m.copyWith(status: status);
         }
         return m;
@@ -278,11 +305,14 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
   Future<void> sendMedia({
     required File file,
     required String type, // 'image', 'audio', 'file'
+    String? caption,
     String? text,
+    int? durationMs,
   }) async {
     final currentUserId = ref.read(authProvider).user?.id ?? 0;
     final clientId = _uuid.v4();
     final tempId = -DateTime.now().millisecondsSinceEpoch;
+    final finalCaption = caption ?? text;
 
     final optimisticMsg = MessageModel(
       id: tempId,
@@ -290,7 +320,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
       senderId: currentUserId,
       clientId: clientId,
       type: type,
-      text: text,
+      text: finalCaption,
       localFilePath: file.path,
       status: MessageStatus.pending,
       createdAt: DateTime.now().toUtc().toIso8601String(),
@@ -304,12 +334,14 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
         file: file,
         type: type,
         clientId: clientId,
-        text: text,
+        durationMs: durationMs,
+        caption: finalCaption,
       );
 
       _replaceMessage(clientId, sentMsg.copyWith(localFilePath: file.path));
     } catch (e) {
       _markMessageFailed(clientId);
+      rethrow;
     }
   }
 

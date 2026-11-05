@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../storage/auth_storage.dart';
 import 'api_exceptions.dart';
@@ -54,6 +55,10 @@ class ApiClient {
   }
 
   ApiException _handleDioError(DioException e) {
+    if (kDebugMode) {
+      debugPrint('[ApiClient FAILED] ${e.requestOptions.method} ${e.requestOptions.path} | Status: ${e.response?.statusCode} | Response: ${e.response?.data}');
+    }
+
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.sendTimeout ||
         e.type == DioExceptionType.receiveTimeout) {

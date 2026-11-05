@@ -22,10 +22,14 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final un = (json['username'] ?? '').toString().trim();
+    final dn = (json['display_name'] ?? '').toString().trim();
+    final resolvedName = dn.isNotEmpty ? dn : (un.isNotEmpty ? '@$un' : 'User');
+
     return UserModel(
       id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
-      username: (json['username'] ?? '') as String,
-      displayName: (json['display_name'] ?? json['username'] ?? '') as String,
+      username: un,
+      displayName: resolvedName,
       bio: (json['bio'] ?? '') as String,
       avatarFileId: json['avatar_file_id'] != null
           ? (json['avatar_file_id'] is int
@@ -37,6 +41,18 @@ class UserModel {
       online: json['online'] == true || json['online'] == 1,
       lastSeen: json['last_seen'] as String?,
     );
+  }
+
+  String get initials {
+    final clean = (displayName.isNotEmpty ? displayName : username)
+        .replaceFirst('@', '')
+        .trim();
+    if (clean.isEmpty) return 'U';
+    final parts = clean.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return clean.substring(0, clean.length >= 2 ? 2 : 1).toUpperCase();
   }
 
   Map<String, dynamic> toJson() {

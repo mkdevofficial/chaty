@@ -42,11 +42,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   Future<void> _toggleFollow() async {
-    final success = await ref.read(friendsProvider.notifier).toggleFollow(_user);
-    if (success && mounted) {
-      setState(() {
-        _user = _user.copyWith(isFollowing: !_user.isFollowing);
-      });
+    try {
+      final updated =
+          await ref.read(friendsProvider.notifier).toggleFollow(_user);
+      if (updated != null && mounted) {
+        setState(() {
+          _user = updated;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update follow status: $e')),
+        );
+      }
     }
   }
 
@@ -163,6 +172,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
+                    key: const Key('profile_follow_button'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(

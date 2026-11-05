@@ -27,19 +27,29 @@ class FriendsRepository {
     return UserModel.fromJson(data);
   }
 
-  Future<void> followUser(int userId) async {
-    await apiClient.post('/friends/$userId');
+  Future<UserModel> followUser(int userId) async {
+    final response = await apiClient.post('/friends/$userId', data: {});
+    final data = response is Map<String, dynamic>
+        ? (response['user'] ?? response)
+        : response;
+    return UserModel.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<void> unfollowUser(int userId) async {
-    await apiClient.delete('/friends/$userId');
+  Future<UserModel> unfollowUser(int userId) async {
+    final response = await apiClient.delete('/friends/$userId', data: {});
+    final data = response is Map<String, dynamic>
+        ? (response['user'] ?? response)
+        : response;
+    return UserModel.fromJson(data as Map<String, dynamic>);
   }
 
   Future<List<UserModel>> getFollowing() async {
     final response = await apiClient.get('/friends/following');
     final List<dynamic> list = response is List
         ? response
-        : (response['following'] as List<dynamic>? ?? []);
+        : (response['users'] as List<dynamic>? ??
+            response['following'] as List<dynamic>? ??
+            []);
 
     return list.map((e) => UserModel.fromJson(e as Map<String, dynamic>)).toList();
   }
@@ -48,7 +58,9 @@ class FriendsRepository {
     final response = await apiClient.get('/friends/followers');
     final List<dynamic> list = response is List
         ? response
-        : (response['followers'] as List<dynamic>? ?? []);
+        : (response['users'] as List<dynamic>? ??
+            response['followers'] as List<dynamic>? ??
+            []);
 
     return list.map((e) => UserModel.fromJson(e as Map<String, dynamic>)).toList();
   }

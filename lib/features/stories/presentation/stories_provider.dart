@@ -47,7 +47,8 @@ class StoriesNotifier extends StateNotifier<StoriesState> {
   void _initWs() {
     final ws = _ref.read(webSocketServiceProvider);
     _wsSubscription = ws.events.listen((event) {
-      if (event['type'] == 'story.new') {
+      final eventName = (event['event'] ?? event['type']) as String?;
+      if (eventName == 'story.new') {
         fetchStories();
       }
     });

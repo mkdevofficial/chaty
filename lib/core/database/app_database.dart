@@ -110,9 +110,7 @@ class AppDatabase {
         list.add(
           ConversationModel(
             id: row['id'] as int,
-            user1Id: (row['user1_id'] as int?) ?? 0,
-            user2Id: (row['user2_id'] as int?) ?? 0,
-            otherUser: UserModel.fromJson(otherUserJson as Map<String, dynamic>),
+            peer: UserModel.fromJson(otherUserJson as Map<String, dynamic>),
             lastMessage: lastMessageJson != null
                 ? MessageModel.fromJson(lastMessageJson as Map<String, dynamic>)
                 : null,

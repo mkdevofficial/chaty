@@ -31,8 +31,14 @@ class StoryModel {
 
   bool get isImage => type == 'image';
   bool get isText => type == 'text';
+  int get viewCount => viewerCount;
 
   factory StoryModel.fromJson(Map<String, dynamic> json) {
+    final rawCount = json['view_count'] ?? json['viewer_count'];
+    final count = rawCount is int
+        ? rawCount
+        : (rawCount != null ? int.tryParse(rawCount.toString()) ?? 0 : 0);
+
     return StoryModel(
       id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
       userId: json['user_id'] is int
@@ -49,11 +55,7 @@ class StoryModel {
       bgColor: json['bg_color'] as String?,
       createdAt: (json['created_at'] ?? DateTime.now().toUtc().toIso8601String()) as String,
       expiresAt: json['expires_at'] as String?,
-      viewerCount: json['viewer_count'] != null
-          ? (json['viewer_count'] is int
-              ? json['viewer_count'] as int
-              : int.tryParse(json['viewer_count'].toString()) ?? 0)
-          : 0,
+      viewerCount: count,
       seen: json['seen'] == true || json['seen'] == 1,
       user: json['user'] != null
           ? UserModel.fromJson(json['user'] as Map<String, dynamic>)
@@ -72,6 +74,7 @@ class StoryModel {
       'bg_color': bgColor,
       'created_at': createdAt,
       'expires_at': expiresAt,
+      'view_count': viewerCount,
       'viewer_count': viewerCount,
       'seen': seen,
       'user': user?.toJson(),
@@ -111,29 +114,68 @@ class StoryModel {
 
 class StoryGroup {
   final UserModel user;
+  final bool? hasUnseenExplicit;
   final List<StoryModel> stories;
 
   const StoryGroup({
     required this.user,
     required this.stories,
+    this.hasUnseenExplicit,
   });
 
-  bool get hasUnseen => stories.any((s) => !s.seen);
+  bool get hasUnseen => hasUnseenExplicit ?? stories.any((s) => !s.seen);
+
+  factory StoryGroup.fromJson(Map<String, dynamic> json) {
+    final userObj = json['user'] is Map<String, dynamic>
+        ? UserModel.fromJson(json['user'] as Map<String, dynamic>)
+        : UserModel.fromJson(json);
+
+    final rawStories = json['stories'] as List<dynamic>? ?? [];
+    final storiesList = rawStories
+        .map((e) => StoryModel.fromJson(e as Map<String, dynamic>).copyWith(user: userObj))
+        .toList();
+
+    final hasUnseen = json['has_unseen'] == true || storiesList.any((s) => !s.seen);
+
+    return StoryGroup(
+      user: userObj,
+      stories: storiesList,
+      hasUnseenExplicit: hasUnseen,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'user': user.toJson(),
+    'has_unseen': hasUnseen,
+    'stories': stories.map((s) => s.toJson()).toList(),
+  };
 }
 
 class StoryViewerModel {
-  final UserModel viewer;
+  final UserModel user;
   final String viewedAt;
 
+  UserModel get viewer => user;
+
   const StoryViewerModel({
-    required this.viewer,
+    required this.user,
     required this.viewedAt,
   });
 
   factory StoryViewerModel.fromJson(Map<String, dynamic> json) {
+    final userJson = json['user'] ?? json['viewer'] ?? json;
+    final user = userJson is Map<String, dynamic>
+        ? UserModel.fromJson(userJson)
+        : const UserModel(id: 0, username: 'user', displayName: 'User');
+
     return StoryViewerModel(
-      viewer: UserModel.fromJson(json['viewer'] ?? json),
+      user: user,
       viewedAt: (json['viewed_at'] ?? DateTime.now().toUtc().toIso8601String()) as String,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'user': user.toJson(),
+    'viewed_at': viewedAt,
+  };
 }

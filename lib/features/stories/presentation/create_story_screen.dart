@@ -61,6 +61,8 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen>
     try {
       final picked = await _picker.pickImage(
         source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
         imageQuality: 85,
       );
       if (picked != null) {
@@ -68,7 +70,13 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen>
           _selectedImage = File(picked.path);
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _publishStory() async {
@@ -80,23 +88,35 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen>
     final notifier = ref.read(storiesProvider.notifier);
     bool success = false;
 
-    if (_tabController.index == 0) {
-      // Photo story
-      if (_selectedImage != null) {
-        success = await notifier.createImageStory(
-          imageFile: _selectedImage!,
-          caption: _captionController.text.trim(),
-        );
+    try {
+      if (_tabController.index == 0) {
+        // Photo story
+        if (_selectedImage != null) {
+          success = await notifier.createImageStory(
+            imageFile: _selectedImage!,
+            caption: _captionController.text.trim(),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select an image first')),
+          );
+        }
+      } else {
+        // Text story
+        final text = _textController.text.trim();
+        if (text.isNotEmpty) {
+          success = await notifier.createTextStory(
+            text: text,
+            bgColor: _selectedBgColor,
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enter story text')),
+          );
+        }
       }
-    } else {
-      // Text story
-      final text = _textController.text.trim();
-      if (text.isNotEmpty) {
-        success = await notifier.createTextStory(
-          text: text,
-          bgColor: _selectedBgColor,
-        );
-      }
+    } catch (e) {
+      success = false;
     }
 
     if (mounted) {
@@ -106,8 +126,9 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen>
       if (success) {
         Navigator.of(context).pop();
       } else {
+        final err = ref.read(storiesProvider).error;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to publish story')),
+          SnackBar(content: Text(err ?? 'Failed to publish story')),
         );
       }
     }

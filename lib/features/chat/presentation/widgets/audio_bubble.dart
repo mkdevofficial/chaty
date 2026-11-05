@@ -23,6 +23,7 @@ class AudioBubble extends ConsumerStatefulWidget {
 class _AudioBubbleState extends ConsumerState<AudioBubble> {
   late final AudioPlayer _player;
   bool _isInitialized = false;
+  bool _hasError = false;
   double _speed = 1.0;
 
   @override
@@ -53,19 +54,33 @@ class _AudioBubbleState extends ConsumerState<AudioBubble> {
       if (mounted) {
         setState(() {
           _isInitialized = true;
+          _hasError = false;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
   }
 
-  void _togglePlayPause() {
+  Future<void> _togglePlayPause() async {
+    if (_hasError) {
+      await _initAudio();
+      return;
+    }
+    if (!_isInitialized) {
+      await _initAudio();
+    }
     if (_player.playing) {
-      _player.pause();
+      await _player.pause();
     } else {
       if (_player.processingState == ProcessingState.completed) {
-        _player.seek(Duration.zero);
+        await _player.seek(Duration.zero);
       }
-      _player.play();
+      await _player.play();
     }
   }
 
@@ -119,6 +134,19 @@ class _AudioBubbleState extends ConsumerState<AudioBubble> {
               final isPlaying = playerState?.playing ?? false;
               final isBuffering =
                   playerState?.processingState == ProcessingState.buffering;
+
+              if (_hasError) {
+                return IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                  icon: const Icon(
+                    Icons.replay_rounded,
+                    size: 32,
+                    color: Colors.redAccent,
+                  ),
+                  onPressed: _initAudio,
+                );
+              }
 
               if (isBuffering || !_isInitialized) {
                 return SizedBox(

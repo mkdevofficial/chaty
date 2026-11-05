@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/core_providers.dart';
 import '../../auth/domain/user_model.dart';
+import '../../stories/presentation/stories_provider.dart';
 import '../data/friends_repository.dart';
 
 final friendsRepositoryProvider = Provider<FriendsRepository>((ref) {
@@ -46,8 +47,9 @@ class FriendsState {
 
 class FriendsNotifier extends StateNotifier<FriendsState> {
   final FriendsRepository _repository;
+  final Ref _ref;
 
-  FriendsNotifier(this._repository) : super(const FriendsState()) {
+  FriendsNotifier(this._repository, this._ref) : super(const FriendsState()) {
     fetchFriends();
   }
 
@@ -82,16 +84,15 @@ class FriendsNotifier extends StateNotifier<FriendsState> {
     }
   }
 
-  Future<bool> toggleFollow(UserModel user) async {
+  Future<UserModel?> toggleFollow(UserModel user) async {
     final currentlyFollowing = user.isFollowing;
     try {
+      final UserModel updatedUser;
       if (currentlyFollowing) {
-        await _repository.unfollowUser(user.id);
+        updatedUser = await _repository.unfollowUser(user.id);
       } else {
-        await _repository.followUser(user.id);
+        updatedUser = await _repository.followUser(user.id);
       }
-
-      final updatedUser = user.copyWith(isFollowing: !currentlyFollowing);
 
       // Update in searchResults
       state = state.copyWith(
@@ -101,12 +102,16 @@ class FriendsNotifier extends StateNotifier<FriendsState> {
         }).toList(),
       );
 
-      // Refresh lists
+      // Refresh friends lists
       await fetchFriends();
-      return true;
+
+      // Refresh stories after following
+      _ref.read(storiesProvider.notifier).fetchStories();
+
+      return updatedUser;
     } catch (e) {
       state = state.copyWith(error: e.toString());
-      return false;
+      rethrow;
     }
   }
 }
@@ -114,5 +119,5 @@ class FriendsNotifier extends StateNotifier<FriendsState> {
 final friendsProvider =
     StateNotifierProvider<FriendsNotifier, FriendsState>((ref) {
   final repository = ref.watch(friendsRepositoryProvider);
-  return FriendsNotifier(repository);
+  return FriendsNotifier(repository, ref);
 });
