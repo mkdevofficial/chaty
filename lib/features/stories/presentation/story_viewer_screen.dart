@@ -102,60 +102,63 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              Text(
-                strings.viewers,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              const SizedBox(height: 12),
-              FutureBuilder<List<StoryViewerModel>>(
-                future: repo.getStoryViewers(_currentStory.id),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-
-                  final viewers = snapshot.data ?? [];
-                  if (viewers.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(strings.noViewersYet),
-                    );
-                  }
-
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: viewers.length,
-                    itemBuilder: (context, index) {
-                      final item = viewers[index];
-                      return ListTile(
-                        leading: ChatyAvatar(
-                          name: item.viewer.displayName,
-                          avatarFileId: item.viewer.avatarFileId,
-                          radius: 20,
-                        ),
-                        title: Text(item.viewer.displayName),
-                        subtitle: Text('@${item.viewer.username}'),
+                Text(
+                  strings.viewers,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 12),
+                FutureBuilder<List<StoryViewerModel>>(
+                  future: repo.getStoryViewers(_currentStory.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(),
                       );
-                    },
-                  );
-                },
-              ),
-            ],
+                    }
+
+                    final viewers = snapshot.data ?? [];
+                    if (viewers.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(strings.noViewersYet),
+                      );
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: viewers.length,
+                      itemBuilder: (context, index) {
+                        final item = viewers[index];
+                        return ListTile(
+                          leading: ChatyAvatar(
+                            name: item.viewer.displayName,
+                            avatarFileId: item.viewer.avatarFileId,
+                            radius: 20,
+                          ),
+                          title: Text(item.viewer.displayName),
+                          subtitle: Text('@${item.viewer.username}'),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -225,6 +228,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
     final story = _currentStory;
     final total = widget.storyGroup.stories.length;
     final authStorage = ref.watch(authStorageProvider);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -292,7 +296,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
             // Optional Caption for image story
             if (story.isImage && story.caption != null && story.caption!.isNotEmpty)
               Positioned(
-                bottom: widget.isOwnStory ? 70 : 30,
+                bottom: (widget.isOwnStory ? 70 : 30) + bottomInset,
                 left: 16,
                 right: 16,
                 child: Container(
@@ -382,7 +386,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
             // Bottom Actions for Owner: Viewers count & Delete
             if (widget.isOwnStory)
               Positioned(
-                bottom: 24,
+                bottom: 24 + bottomInset,
                 left: 16,
                 right: 16,
                 child: Row(

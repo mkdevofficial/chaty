@@ -47,9 +47,10 @@ class _StickerPickerSheetState extends ConsumerState<StickerPickerSheet>
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     final recentList = StickerManager.getRecentStickers(prefs);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Container(
-      height: 320,
+      height: 330 + bottomInset,
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -61,9 +62,11 @@ class _StickerPickerSheetState extends ConsumerState<StickerPickerSheet>
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // Drag handle bar
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            // Drag handle bar
           Container(
             width: 36,
             height: 4,
@@ -123,7 +126,7 @@ class _StickerPickerSheetState extends ConsumerState<StickerPickerSheet>
                         ),
                       )
                     : GridView.builder(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.paddingOf(context).bottom),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 4,
@@ -160,32 +163,33 @@ class _StickerPickerSheetState extends ConsumerState<StickerPickerSheet>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPackGrid(StickerPack pack) {
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: pack.stickers.length,
-      itemBuilder: (context, index) {
-        final sticker = pack.stickers[index];
-        return InkWell(
-          onTap: () => _selectSticker(sticker.pack, sticker.id),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: StickerManager.buildStickerWidget(
-              sticker.pack,
-              sticker.id,
-            ),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.paddingOf(context).bottom),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 4,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+    ),
+    itemCount: pack.stickers.length,
+    itemBuilder: (context, index) {
+      final sticker = pack.stickers[index];
+      return InkWell(
+        onTap: () => _selectSticker(sticker.pack, sticker.id),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: StickerManager.buildStickerWidget(
+            sticker.pack,
+            sticker.id,
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 }

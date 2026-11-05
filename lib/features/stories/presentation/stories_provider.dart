@@ -38,6 +38,7 @@ class StoriesNotifier extends StateNotifier<StoriesState> {
   final StoriesRepository _repository;
   final Ref _ref;
   StreamSubscription? _wsSubscription;
+  StreamSubscription? _resyncSubscription;
 
   StoriesNotifier(this._repository, this._ref) : super(const StoriesState()) {
     fetchStories();
@@ -46,12 +47,22 @@ class StoriesNotifier extends StateNotifier<StoriesState> {
 
   void _initWs() {
     final ws = _ref.read(webSocketServiceProvider);
+    _resyncSubscription = ws.resyncStream.listen((_) {
+      fetchStories();
+    });
     _wsSubscription = ws.events.listen((event) {
       final eventName = (event['event'] ?? event['type']) as String?;
       if (eventName == 'story.new') {
         fetchStories();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _wsSubscription?.cancel();
+    _resyncSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchStories() async {
@@ -118,12 +129,6 @@ class StoriesNotifier extends StateNotifier<StoriesState> {
     } catch (e) {
       return false;
     }
-  }
-
-  @override
-  void dispose() {
-    _wsSubscription?.cancel();
-    super.dispose();
   }
 }
 

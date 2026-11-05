@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../domain/message_model.dart';
 import 'audio_bubble.dart';
@@ -10,20 +11,86 @@ class MessageBubble extends StatelessWidget {
   final MessageModel message;
   final bool isOutgoing;
   final bool isArabic;
+  final String peerName;
+  final int currentUserId;
+  final bool isHighlighted;
   final VoidCallback? onRetry;
+  final void Function(int messageId)? onQuotedMessageTap;
 
   const MessageBubble({
     super.key,
     required this.message,
     required this.isOutgoing,
     this.isArabic = true,
+    this.peerName = 'User',
+    this.currentUserId = 0,
+    this.isHighlighted = false,
     this.onRetry,
+    this.onQuotedMessageTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = AppLocalizations.of(context).strings;
     final timeStr = DateFormatter.formatMessageTime(message.createdAt, isArabic: isArabic);
+
+    // 1. Tombstone bubble for deleted messages
+    if (message.deleted) {
+      return Align(
+        alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.78,
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isHighlighted
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.7)
+                : (isOutgoing
+                    ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                    : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isHighlighted
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              width: isHighlighted ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.block_flipped,
+                size: 15,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  strings.thisMessageWasDeleted,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontStyle: FontStyle.italic,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                timeStr,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     Widget messageContent;
 
@@ -62,6 +129,11 @@ class MessageBubble extends StatelessWidget {
             crossAxisAlignment:
                 isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
+              if (message.replyTo != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: _buildQuotedBlock(context, message.replyTo!, theme, strings),
+                ),
               messageContent,
               const SizedBox(height: 2),
               Container(
@@ -94,9 +166,11 @@ class MessageBubble extends StatelessWidget {
       );
     }
 
-    final bubbleBg = isOutgoing
-        ? theme.colorScheme.primary
-        : theme.colorScheme.surfaceContainerHighest;
+    final bubbleBg = isHighlighted
+        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.85)
+        : (isOutgoing
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHighest);
 
     final bubbleRadius = BorderRadius.only(
       topLeft: const Radius.circular(18),
@@ -118,6 +192,9 @@ class MessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: bubbleBg,
           borderRadius: bubbleRadius,
+          border: isHighlighted
+              ? Border.all(color: theme.colorScheme.primary, width: 2)
+              : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -131,9 +208,110 @@ class MessageBubble extends StatelessWidget {
               isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Quoted message block
+            if (message.replyTo != null)
+              _buildQuotedBlock(context, message.replyTo!, theme, strings),
             messageContent,
             const SizedBox(height: 2),
             _buildStatusRow(theme, timeStr),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuotedBlock(
+    BuildContext context,
+    MessageReplyTo replyTo,
+    ThemeData theme,
+    ChatyStrings strings,
+  ) {
+    final isMe = replyTo.senderId == currentUserId;
+    final senderName = isMe ? strings.you : peerName;
+
+    String snippet = '';
+    IconData? icon;
+    if (replyTo.deleted) {
+      snippet = strings.thisMessageWasDeleted;
+      icon = Icons.block_flipped;
+    } else if (replyTo.type == 'text') {
+      snippet = replyTo.text ?? '';
+    } else if (replyTo.type == 'image') {
+      snippet = strings.photo;
+      icon = Icons.image_rounded;
+    } else if (replyTo.type == 'audio') {
+      snippet = strings.voiceMessage;
+      icon = Icons.mic_rounded;
+    } else if (replyTo.type == 'file') {
+      snippet = strings.file;
+      icon = Icons.insert_drive_file_rounded;
+    } else if (replyTo.type == 'sticker') {
+      snippet = strings.sticker;
+      icon = Icons.emoji_emotions_outlined;
+    }
+
+    return InkWell(
+      onTap: () => onQuotedMessageTap?.call(replyTo.id),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: isOutgoing
+              ? Colors.black.withValues(alpha: 0.15)
+              : theme.colorScheme.surface.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: isArabic
+                ? BorderSide.none
+                : BorderSide(color: isOutgoing ? Colors.white70 : theme.colorScheme.primary, width: 3),
+            right: isArabic
+                ? BorderSide(color: isOutgoing ? Colors.white70 : theme.colorScheme.primary, width: 3)
+                : BorderSide.none,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              senderName,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: isOutgoing ? Colors.white : theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(
+                    icon,
+                    size: 13,
+                    color: isOutgoing
+                        ? Colors.white70
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    snippet,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: replyTo.deleted ? FontStyle.italic : FontStyle.normal,
+                      color: isOutgoing
+                          ? Colors.white.withValues(alpha: 0.9)
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

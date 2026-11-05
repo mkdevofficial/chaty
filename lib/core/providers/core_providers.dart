@@ -29,3 +29,6 @@ final webSocketServiceProvider = Provider<WebSocketService>((ref) {
   ref.onDispose(() => service.dispose());
   return service;
 });
+
+/// Globally tracks the conversation ID currently open and visible to the user.
+final activeConversationIdProvider = StateProvider<int?>((ref) => null);

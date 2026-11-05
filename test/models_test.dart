@@ -378,5 +378,82 @@ void main() {
       expect(list.length, 1);
       expect(wrapper['has_more'], false);
     });
+
+    test('parses message with reply_to object correctly', () {
+      final json = {
+        'id': 25,
+        'conversation_id': 10,
+        'sender_id': 5,
+        'client_id': 'c-reply-1',
+        'type': 'text',
+        'text': 'This is a reply message',
+        'reply_to': {
+          'id': 24,
+          'sender_id': 6,
+          'type': 'image',
+          'text': 'Photo caption',
+          'deleted': false,
+        },
+        'status': 'sent',
+        'created_at': '2026-11-05T09:00:00Z',
+      };
+
+      final msg = MessageModel.fromJson(json);
+      expect(msg.id, 25);
+      expect(msg.replyTo, isNotNull);
+      expect(msg.replyTo!.id, 24);
+      expect(msg.replyTo!.senderId, 6);
+      expect(msg.replyTo!.type, 'image');
+      expect(msg.replyTo!.text, 'Photo caption');
+      expect(msg.replyTo!.deleted, false);
+    });
+
+    test('parses tombstone message deleted for everyone', () {
+      final json = {
+        'id': 30,
+        'conversation_id': 10,
+        'sender_id': 5,
+        'type': 'text',
+        'text': null,
+        'attachment': null,
+        'sticker': null,
+        'deleted': true,
+        'deleted_at': '2026-11-05T09:15:00Z',
+        'status': 'sent',
+        'created_at': '2026-11-05T09:00:00Z',
+      };
+
+      final msg = MessageModel.fromJson(json);
+      expect(msg.id, 30);
+      expect(msg.deleted, true);
+      expect(msg.text, isNull);
+      expect(msg.attachment, isNull);
+      expect(msg.sticker, isNull);
+      expect(msg.deletedAt, '2026-11-05T09:15:00Z');
+    });
+
+    test('parses message with deleted reply_to tombstone', () {
+      final json = {
+        'id': 31,
+        'conversation_id': 10,
+        'sender_id': 6,
+        'type': 'text',
+        'text': 'Replying to what was deleted',
+        'reply_to': {
+          'id': 30,
+          'sender_id': 5,
+          'type': 'text',
+          'text': null,
+          'deleted': true,
+        },
+        'status': 'sent',
+        'created_at': '2026-11-05T09:20:00Z',
+      };
+
+      final msg = MessageModel.fromJson(json);
+      expect(msg.replyTo, isNotNull);
+      expect(msg.replyTo!.deleted, true);
+      expect(msg.replyTo!.id, 30);
+    });
   });
 }

@@ -25,6 +25,7 @@ class WebSocketService {
 
   final _eventController = StreamController<Map<String, dynamic>>.broadcast();
   final _statusController = StreamController<WsConnectionStatus>.broadcast();
+  final _resyncController = StreamController<void>.broadcast();
 
   VoidCallback? onResyncNeeded;
 
@@ -32,12 +33,21 @@ class WebSocketService {
 
   Stream<Map<String, dynamic>> get events => _eventController.stream;
   Stream<WsConnectionStatus> get statusStream => _statusController.stream;
+  Stream<void> get resyncStream => _resyncController.stream;
   WsConnectionStatus get status => _status;
   bool get isConnected => _status == WsConnectionStatus.connected;
+
+  void notifyResync() {
+    _resyncController.add(null);
+    onResyncNeeded?.call();
+  }
 
   void _setStatus(WsConnectionStatus status) {
     if (_status != status) {
       _status = status;
+      if (kDebugMode) {
+        debugPrint('[WebSocket] Connection status: $status');
+      }
       _statusController.add(status);
     }
   }
@@ -83,10 +93,12 @@ class WebSocketService {
 
       // If reconnecting after a drop, notify resync
       if (hadPreviousAttempts) {
-        onResyncNeeded?.call();
+        notifyResync();
       }
     } catch (e) {
-      debugPrint('Failed to connect to WebSocket: $e');
+      if (kDebugMode) {
+        debugPrint('[WebSocket] Failed to connect: $e');
+      }
       _handleDisconnect();
     }
   }
@@ -100,7 +112,7 @@ class WebSocketService {
           final eventData = decoded['data'] ?? decoded;
 
           if (kDebugMode) {
-            debugPrint('[WebSocket] INCOMING EVENT: $eventName | DATA: $eventData');
+            debugPrint('[WebSocket RECV] $eventName -> $eventData');
           }
 
           // Normalize so all listeners can consume either contract style or legacy
@@ -117,7 +129,9 @@ class WebSocketService {
         }
       }
     } catch (e) {
-      debugPrint('Error decoding WS message: $e');
+      if (kDebugMode) {
+        debugPrint('[WebSocket] Error decoding WS frame: $e');
+      }
     }
   }
 
@@ -180,9 +194,16 @@ class WebSocketService {
   }
 
   void onAppForeground() {
+    if (kDebugMode) {
+      debugPrint('[WebSocket] App returned to foreground, checking connection...');
+    }
     if (!isConnected) {
       _reconnectAttempts = 0;
       connect();
+    } else {
+      // Send heartbeat ping to test connection and trigger resync for active views
+      send({'event': 'ping'});
+      notifyResync();
     }
   }
 
@@ -198,5 +219,6 @@ class WebSocketService {
     disconnect();
     _eventController.close();
     _statusController.close();
+    _resyncController.close();
   }
 }

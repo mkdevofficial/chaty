@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/core_providers.dart';
+import '../../../auth/presentation/auth_provider.dart';
 import '../../data/chat_repository.dart';
 import '../../domain/conversation_model.dart';
 import '../../domain/message_model.dart';
@@ -42,31 +43,34 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   final ChatRepository _repository;
   final Ref _ref;
   StreamSubscription? _wsSubscription;
+  StreamSubscription? _resyncSubscription;
 
   ConversationsNotifier(this._repository, this._ref)
       : super(const ConversationsState()) {
     _init();
   }
 
-  Future<void> _init() async {
-    // 1. Load cached conversations immediately
-    final cached = await _repository.getCachedConversations();
-    if (cached.isNotEmpty) {
-      state = state.copyWith(conversations: cached);
-    }
-
-    // 2. Refresh from server
-    await refresh();
-
-    // 3. Listen to WebSocket events
+  void _init() {
+    // 1. Listen to WebSocket resync stream and events immediately
     final ws = _ref.read(webSocketServiceProvider);
-    ws.onResyncNeeded = () {
+    _resyncSubscription = ws.resyncStream.listen((_) {
       refresh();
-    };
+    });
 
     _wsSubscription = ws.events.listen((event) {
       _handleWsEvent(event);
     });
+
+    // 2. Load cached conversations and fetch remote
+    _loadInitial();
+  }
+
+  Future<void> _loadInitial() async {
+    final cached = await _repository.getCachedConversations();
+    if (cached.isNotEmpty) {
+      state = state.copyWith(conversations: cached);
+    }
+    await refresh();
   }
 
   void _handleWsEvent(Map<String, dynamic> event) {
@@ -83,6 +87,45 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
           _onNewMessage(message);
         }
       } catch (_) {}
+    } else if (eventName == 'conversation.updated') {
+      try {
+        final convRaw = eventData['conversation'] ?? eventData;
+        if (convRaw is Map<String, dynamic>) {
+          final updatedConv = ConversationModel.fromJson(convRaw);
+          _onConversationUpdated(updatedConv);
+        }
+      } catch (_) {}
+    } else if (eventName == 'message.status') {
+      final statusStr = (eventData['status'] ?? event['status']) as String?;
+      if (statusStr != null) {
+        final newStatus = MessageStatusExtension.fromString(statusStr);
+        final List<int> idsToUpdate = [];
+
+        final rawIds = eventData['message_ids'] ?? event['message_ids'];
+        if (rawIds is List) {
+          for (final item in rawIds) {
+            final id = item is int ? item : int.tryParse(item.toString());
+            if (id != null) idsToUpdate.add(id);
+          }
+        }
+
+        final singleId = eventData['message_id'] ?? event['message_id'];
+        if (singleId != null) {
+          final id = singleId is int ? singleId : int.tryParse(singleId.toString());
+          if (id != null && !idsToUpdate.contains(id)) idsToUpdate.add(id);
+        }
+
+        if (idsToUpdate.isNotEmpty) {
+          _updateLastMessageStatus(idsToUpdate, newStatus);
+        }
+      }
+    } else if (eventName == 'message.deleted') {
+      final messageIdRaw = eventData['message_id'] ?? event['message_id'];
+      final messageId =
+          messageIdRaw is int ? messageIdRaw : int.tryParse(messageIdRaw?.toString() ?? '');
+      if (messageId != null) {
+        _onMessageDeleted(messageId);
+      }
     } else if (eventName == 'presence') {
       final userIdRaw = eventData['user_id'] ?? event['user_id'];
       final userId =
@@ -112,21 +155,88 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   void _onNewMessage(MessageModel message) {
     final list = List<ConversationModel>.from(state.conversations);
     final index = list.indexWhere((c) => c.id == message.conversationId);
+    final activeId = _ref.read(activeConversationIdProvider);
+    final currentUserId = _ref.read(authProvider).user?.id ?? 0;
+
+    final isCurrentlyOpen = activeId == message.conversationId;
 
     if (index != -1) {
       final existing = list[index];
+      final newUnread = isCurrentlyOpen
+          ? 0
+          : (message.senderId == currentUserId
+              ? existing.unreadCount
+              : existing.unreadCount + 1);
+
       final updated = existing.copyWith(
         lastMessage: message,
-        unreadCount: existing.unreadCount + 1,
+        unreadCount: newUnread,
         updatedAt: message.createdAt,
       );
       list.removeAt(index);
       list.insert(0, updated);
       state = state.copyWith(conversations: list);
+
+      if (isCurrentlyOpen) {
+        _repository.markConversationAsRead(message.conversationId);
+      }
     } else {
-      // New conversation initiated by other user -> refresh
+      // New conversation initiated by other user -> refresh from server
       refresh();
     }
+  }
+
+  void _onConversationUpdated(ConversationModel serverConv) {
+    final activeId = _ref.read(activeConversationIdProvider);
+    final list = List<ConversationModel>.from(state.conversations);
+    final index = list.indexWhere((c) => c.id == serverConv.id);
+
+    // If chat is currently open, unread count should be 0
+    final effectiveConv = (activeId == serverConv.id)
+        ? serverConv.copyWith(unreadCount: 0)
+        : serverConv;
+
+    if (index != -1) {
+      list[index] = effectiveConv;
+    } else {
+      list.insert(0, effectiveConv);
+    }
+
+    // Sort by updatedAt descending
+    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    state = state.copyWith(conversations: list);
+  }
+
+  void _updateLastMessageStatus(List<int> ids, MessageStatus status) {
+    final idSet = ids.toSet();
+    state = state.copyWith(
+      conversations: state.conversations.map((c) {
+        if (c.lastMessage != null && idSet.contains(c.lastMessage!.id)) {
+          return c.copyWith(
+            lastMessage: c.lastMessage!.copyWith(status: status),
+          );
+        }
+        return c;
+      }).toList(),
+    );
+  }
+
+  void _onMessageDeleted(int messageId) {
+    state = state.copyWith(
+      conversations: state.conversations.map((c) {
+        if (c.lastMessage != null && c.lastMessage!.id == messageId) {
+          return c.copyWith(
+            lastMessage: c.lastMessage!.copyWith(
+              deleted: true,
+              text: null,
+              attachment: null,
+              sticker: null,
+            ),
+          );
+        }
+        return c;
+      }).toList(),
+    );
   }
 
   Future<void> refresh() async {
@@ -153,6 +263,7 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   @override
   void dispose() {
     _wsSubscription?.cancel();
+    _resyncSubscription?.cancel();
     super.dispose();
   }
 }

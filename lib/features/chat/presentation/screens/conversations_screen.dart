@@ -247,15 +247,18 @@ class ConversationsScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const SearchUsersScreen(),
-            ),
-          );
-        },
-        child: const Icon(Icons.chat_bubble_outline),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom > 0 ? 8 : 0),
+        child: FloatingActionButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const SearchUsersScreen(),
+              ),
+            );
+          },
+          child: const Icon(Icons.chat_bubble_outline),
+        ),
       ),
     );
   }

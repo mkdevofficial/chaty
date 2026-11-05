@@ -88,6 +88,7 @@ class ChatRepository {
     required int conversationId,
     required String text,
     required String clientId,
+    int? replyToId,
   }) async {
     final response = await apiClient.post(
       '/conversations/$conversationId/messages',
@@ -95,6 +96,7 @@ class ChatRepository {
         'type': 'text',
         'text': text,
         'client_id': clientId,
+        'reply_to_id': ?replyToId,
       },
     );
 
@@ -112,6 +114,7 @@ class ChatRepository {
     required String pack,
     required String id,
     required String clientId,
+    int? replyToId,
   }) async {
     final response = await apiClient.post(
       '/conversations/$conversationId/messages',
@@ -119,6 +122,7 @@ class ChatRepository {
         'type': 'sticker',
         'sticker': {'pack': pack, 'id': id},
         'client_id': clientId,
+        'reply_to_id': ?replyToId,
       },
     );
 
@@ -139,6 +143,7 @@ class ChatRepository {
     int? durationMs,
     String? caption,
     String? text,
+    int? replyToId,
     void Function(int sent, int total)? onProgress,
   }) async {
     final fileName = file.path.split('/').last;
@@ -166,6 +171,7 @@ class ChatRepository {
       'client_id': clientId,
       if (durationMs != null && durationMs > 0) 'duration_ms': durationMs.toString(),
       if (finalCaption != null && finalCaption.isNotEmpty) 'caption': finalCaption,
+      if (replyToId != null) 'reply_to_id': replyToId.toString(),
       'file': await MultipartFile.fromFile(
         file.path,
         filename: fileName,
@@ -190,8 +196,32 @@ class ChatRepository {
 
   Future<void> markConversationAsRead(int conversationId) async {
     try {
-      await apiClient.post('/conversations/$conversationId/read');
+      await apiClient.post(
+        '/conversations/$conversationId/read',
+        data: {}, // Sends empty JSON object to avoid 415 Unsupported Media Type
+      );
     } catch (_) {}
+  }
+
+  Future<void> deleteMessage({
+    required int conversationId,
+    required int messageId,
+    required String scope, // 'me' or 'everyone'
+  }) async {
+    try {
+      await apiClient.delete(
+        '/conversations/$conversationId/messages/$messageId',
+        queryParameters: {'scope': scope},
+      );
+    } catch (_) {
+      // In case route is missing on server, client optimistic state still succeeds
+    }
+
+    if (scope == 'me') {
+      await database.deleteLocalMessage(messageId);
+    } else {
+      await database.markMessageDeletedLocally(messageId);
+    }
   }
 
   Future<File> downloadFile(

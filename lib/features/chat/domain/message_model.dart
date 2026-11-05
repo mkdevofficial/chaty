@@ -125,6 +125,44 @@ extension MessageStatusExtension on MessageStatus {
   }
 }
 
+class MessageReplyTo {
+  final int id;
+  final int senderId;
+  final String type; // 'text', 'image', 'audio', 'file', 'sticker'
+  final String? text; // truncated to 120 chars
+  final bool deleted;
+
+  const MessageReplyTo({
+    required this.id,
+    required this.senderId,
+    required this.type,
+    this.text,
+    this.deleted = false,
+  });
+
+  factory MessageReplyTo.fromJson(Map<String, dynamic> json) {
+    return MessageReplyTo(
+      id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
+      senderId: json['sender_id'] is int
+          ? json['sender_id'] as int
+          : int.parse(json['sender_id'].toString()),
+      type: (json['type'] ?? 'text') as String,
+      text: json['text'] as String?,
+      deleted: json['deleted'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'sender_id': senderId,
+      'type': type,
+      'text': text,
+      'deleted': deleted,
+    };
+  }
+}
+
 class MessageModel {
   final int id;
   final int conversationId;
@@ -137,6 +175,9 @@ class MessageModel {
   final MessageStatus status;
   final String createdAt;
   final String? localFilePath; // for optimistic audio/image messages
+  final MessageReplyTo? replyTo;
+  final bool deleted;
+  final String? deletedAt;
 
   const MessageModel({
     required this.id,
@@ -150,6 +191,9 @@ class MessageModel {
     this.status = MessageStatus.sent,
     required this.createdAt,
     this.localFilePath,
+    this.replyTo,
+    this.deleted = false,
+    this.deletedAt,
   });
 
   bool get isText => type == 'text';
@@ -179,6 +223,11 @@ class MessageModel {
       status: MessageStatusExtension.fromString(json['status'] as String?),
       createdAt: (json['created_at'] ?? DateTime.now().toUtc().toIso8601String()) as String,
       localFilePath: json['local_file_path'] as String?,
+      replyTo: json['reply_to'] != null
+          ? MessageReplyTo.fromJson(json['reply_to'] as Map<String, dynamic>)
+          : null,
+      deleted: json['deleted'] == true,
+      deletedAt: json['deleted_at'] as String?,
     );
   }
 
@@ -195,6 +244,9 @@ class MessageModel {
       'status': status.value,
       'created_at': createdAt,
       'local_file_path': localFilePath,
+      'reply_to': replyTo?.toJson(),
+      'deleted': deleted,
+      'deleted_at': deletedAt,
     };
   }
 
@@ -210,19 +262,27 @@ class MessageModel {
     MessageStatus? status,
     String? createdAt,
     String? localFilePath,
+    MessageReplyTo? replyTo,
+    bool? deleted,
+    String? deletedAt,
+    bool clearContent = false,
   }) {
+    final isDel = deleted ?? this.deleted;
     return MessageModel(
       id: id ?? this.id,
       conversationId: conversationId ?? this.conversationId,
       senderId: senderId ?? this.senderId,
       clientId: clientId ?? this.clientId,
       type: type ?? this.type,
-      text: text ?? this.text,
-      attachment: attachment ?? this.attachment,
-      sticker: sticker ?? this.sticker,
+      text: (isDel || clearContent) ? null : (text ?? this.text),
+      attachment: (isDel || clearContent) ? null : (attachment ?? this.attachment),
+      sticker: (isDel || clearContent) ? null : (sticker ?? this.sticker),
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
-      localFilePath: localFilePath ?? this.localFilePath,
+      localFilePath: (isDel || clearContent) ? null : (localFilePath ?? this.localFilePath),
+      replyTo: replyTo ?? this.replyTo,
+      deleted: isDel,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }

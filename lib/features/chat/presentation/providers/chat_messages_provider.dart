@@ -49,7 +49,9 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
   final ChatRepository repository;
   final Ref ref;
   StreamSubscription? _wsSubscription;
+  StreamSubscription? _resyncSubscription;
   Timer? _typingTimer;
+  Timer? _readDebounce;
   final _uuid = const Uuid();
 
   ChatMessagesNotifier({
@@ -60,24 +62,30 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
     _init();
   }
 
-  Future<void> _init() async {
-    // 1. Load cached messages immediately
+  void _init() {
+    // 1. Listen to WebSocket events & reconnect resyncs immediately
+    final ws = ref.read(webSocketServiceProvider);
+    _resyncSubscription = ws.resyncStream.listen((_) {
+      fetchLatest();
+    });
+
+    _wsSubscription = ws.events.listen((event) {
+      _handleWsEvent(event);
+    });
+
+    // 2. Load cached messages and fetch fresh from server
+    _loadInitial();
+  }
+
+  Future<void> _loadInitial() async {
     final cached = await repository.getCachedMessages(conversationId);
     if (cached.isNotEmpty) {
       state = state.copyWith(messages: cached);
     }
 
-    // 2. Fetch fresh messages from server
     await fetchLatest();
 
-    // 3. Mark as read
     ref.read(conversationsProvider.notifier).markAsRead(conversationId);
-
-    // 4. Listen to WebSocket events
-    final ws = ref.read(webSocketServiceProvider);
-    _wsSubscription = ws.events.listen((event) {
-      _handleWsEvent(event);
-    });
   }
 
   void _handleWsEvent(Map<String, dynamic> event) {
@@ -93,7 +101,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
           final message = MessageModel.fromJson(rawMsg);
           if (message.conversationId == conversationId) {
             _onIncomingMessage(message);
-            ref.read(conversationsProvider.notifier).markAsRead(conversationId);
+            _debounceMarkAsRead();
           }
         }
       } catch (_) {}
@@ -121,6 +129,18 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
           _updateMessageStatuses(idsToUpdate, newStatus);
         }
       }
+    } else if (eventName == 'message.deleted') {
+      final convIdRaw = eventData['conversation_id'] ?? event['conversation_id'];
+      final convId =
+          convIdRaw is int ? convIdRaw : int.tryParse(convIdRaw?.toString() ?? '');
+      if (convId == conversationId || convId == null) {
+        final msgIdRaw = eventData['message_id'] ?? event['message_id'];
+        final msgId =
+            msgIdRaw is int ? msgIdRaw : int.tryParse(msgIdRaw?.toString() ?? '');
+        if (msgId != null) {
+          _onMessageDeleted(msgId);
+        }
+      }
     } else if (eventName == 'typing') {
       final convIdRaw = eventData['conversation_id'] ?? event['conversation_id'];
       final convId =
@@ -139,6 +159,14 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
         }
       }
     }
+  }
+
+  void _debounceMarkAsRead() {
+    _readDebounce?.cancel();
+    _readDebounce = Timer(const Duration(milliseconds: 300), () {
+      repository.markConversationAsRead(conversationId);
+      ref.read(conversationsProvider.notifier).markAsRead(conversationId);
+    });
   }
 
   void _setTyping(bool isTyping) {
@@ -234,7 +262,11 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
 
   // --- Optimistic Sending ---
 
-  Future<void> sendText(String text) async {
+  Future<void> sendText(
+    String text, {
+    int? replyToId,
+    MessageReplyTo? replyTo,
+  }) async {
     final cleanText = text.trim();
     if (cleanText.isEmpty) return;
 
@@ -249,6 +281,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
       clientId: clientId,
       type: 'text',
       text: cleanText,
+      replyTo: replyTo,
       status: MessageStatus.pending,
       createdAt: DateTime.now().toUtc().toIso8601String(),
     );
@@ -262,6 +295,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
         conversationId: conversationId,
         text: cleanText,
         clientId: clientId,
+        replyToId: replyToId,
       );
 
       _replaceMessage(clientId, sentMsg);
@@ -270,7 +304,12 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
     }
   }
 
-  Future<void> sendSticker({required String pack, required String id}) async {
+  Future<void> sendSticker({
+    required String pack,
+    required String id,
+    int? replyToId,
+    MessageReplyTo? replyTo,
+  }) async {
     final currentUserId = ref.read(authProvider).user?.id ?? 0;
     final clientId = _uuid.v4();
     final tempId = -DateTime.now().millisecondsSinceEpoch;
@@ -282,6 +321,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
       clientId: clientId,
       type: 'sticker',
       sticker: MessageSticker(pack: pack, id: id),
+      replyTo: replyTo,
       status: MessageStatus.pending,
       createdAt: DateTime.now().toUtc().toIso8601String(),
     );
@@ -294,6 +334,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
         pack: pack,
         id: id,
         clientId: clientId,
+        replyToId: replyToId,
       );
 
       _replaceMessage(clientId, sentMsg);
@@ -308,6 +349,8 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
     String? caption,
     String? text,
     int? durationMs,
+    int? replyToId,
+    MessageReplyTo? replyTo,
   }) async {
     final currentUserId = ref.read(authProvider).user?.id ?? 0;
     final clientId = _uuid.v4();
@@ -322,6 +365,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
       type: type,
       text: finalCaption,
       localFilePath: file.path,
+      replyTo: replyTo,
       status: MessageStatus.pending,
       createdAt: DateTime.now().toUtc().toIso8601String(),
     );
@@ -336,6 +380,7 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
         clientId: clientId,
         durationMs: durationMs,
         caption: finalCaption,
+        replyToId: replyToId,
       );
 
       _replaceMessage(clientId, sentMsg.copyWith(localFilePath: file.path));
@@ -343,6 +388,61 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
       _markMessageFailed(clientId);
       rethrow;
     }
+  }
+
+  Future<void> deleteMessage(int messageId, String scope) async {
+    if (scope == 'me') {
+      state = state.copyWith(
+        messages: state.messages.where((m) => m.id != messageId).toList(),
+      );
+    } else {
+      state = state.copyWith(
+        messages: state.messages.map((m) {
+          if (m.id == messageId) {
+            return m.copyWith(
+              deleted: true,
+              text: null,
+              attachment: null,
+              sticker: null,
+            );
+          }
+          return m;
+        }).toList(),
+      );
+    }
+
+    await repository.deleteMessage(
+      conversationId: conversationId,
+      messageId: messageId,
+      scope: scope,
+    );
+  }
+
+  void _onMessageDeleted(int messageId) {
+    state = state.copyWith(
+      messages: state.messages.map((m) {
+        if (m.id == messageId) {
+          return m.copyWith(
+            deleted: true,
+            text: null,
+            attachment: null,
+            sticker: null,
+          );
+        }
+        return m;
+      }).toList(),
+    );
+  }
+
+  Future<bool> loadOlderUntilFound(int targetMessageId) async {
+    int attempts = 0;
+    while (!state.messages.any((m) => m.id == targetMessageId) &&
+        state.hasMoreOlder &&
+        attempts < 5) {
+      attempts++;
+      await loadOlderMessages();
+    }
+    return state.messages.any((m) => m.id == targetMessageId);
   }
 
   Future<void> retryFailedMessage(MessageModel message) async {
@@ -414,7 +514,9 @@ class ChatMessagesNotifier extends StateNotifier<ChatMessagesState> {
   @override
   void dispose() {
     _wsSubscription?.cancel();
+    _resyncSubscription?.cancel();
     _typingTimer?.cancel();
+    _readDebounce?.cancel();
     super.dispose();
   }
 }

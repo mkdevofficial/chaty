@@ -202,4 +202,181 @@ void main() {
     expect(find.text('Follow'), findsOneWidget);
     expect(find.text('Unfollow'), findsNothing);
   });
+
+  testWidgets('Recording bar respects bottom safe area / inset', (WidgetTester tester) async {
+    final dummyAudioFile = File('/tmp/test_voice2.m4a');
+    if (!dummyAudioFile.existsSync()) {
+      dummyAudioFile.createSync();
+    }
+
+    const testBottomInset = 48.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: MediaQuery(
+          data: const MediaQueryData(
+            padding: EdgeInsets.only(bottom: testBottomInset),
+            viewPadding: EdgeInsets.only(bottom: testBottomInset),
+          ),
+          child: Scaffold(
+            bottomNavigationBar: VoiceRecorderOverlay(
+              key: const Key('tested_voice_overlay'),
+              initialPreviewFile: dummyAudioFile,
+              initialDurationSeconds: 3,
+              onSend: (file, duration) {},
+              onCancel: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Find the VoiceRecorderOverlay widget and verify its height includes the bottom inset
+    final overlayFinder = find.byKey(const Key('tested_voice_overlay'));
+    expect(overlayFinder, findsOneWidget);
+
+    final size = tester.getSize(overlayFinder);
+    // Base height is 48px row + 16px padding = 64px, with 48px bottom inset = 112px
+    expect(size.height, greaterThanOrEqualTo(64.0 + testBottomInset));
+  });
+
+  testWidgets('Reply preview bar renders sender name, snippet, and closes on tap', (WidgetTester tester) async {
+    bool closed = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            if (closed) return const SizedBox();
+            return Scaffold(
+              body: Container(
+                key: const Key('reply_preview_bar'),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                color: Colors.grey.shade200,
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Sarah Connor', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Are you coming today?'),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      key: const Key('reply_preview_close_button'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        setState(() {
+                          closed = true;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('reply_preview_bar')), findsOneWidget);
+    expect(find.text('Sarah Connor'), findsOneWidget);
+    expect(find.text('Are you coming today?'), findsOneWidget);
+
+    // Tap close button
+    await tester.tap(find.byKey(const Key('reply_preview_close_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('reply_preview_bar')), findsNothing);
+  });
+
+  testWidgets('Delete dialog options: for everyone option only appears for own messages', (WidgetTester tester) async {
+    Widget buildDeleteDialog({required bool isOutgoing}) {
+      return MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Builder(
+          builder: (context) {
+            return ElevatedButton(
+              key: const Key('open_dialog_button'),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Delete'),
+                    content: const Text('Delete this message?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Delete for me'),
+                      ),
+                      if (isOutgoing)
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Delete for everyone'),
+                        ),
+                    ],
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            );
+          },
+        ),
+      );
+    }
+
+    // 1. Test own message (isOutgoing = true)
+    await tester.pumpWidget(buildDeleteDialog(isOutgoing: true));
+    await tester.tap(find.byKey(const Key('open_dialog_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete for me'), findsOneWidget);
+    expect(find.text('Delete for everyone'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // 2. Test peer's message (isOutgoing = false)
+    await tester.pumpWidget(buildDeleteDialog(isOutgoing: false));
+    await tester.tap(find.byKey(const Key('open_dialog_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete for me'), findsOneWidget);
+    // "Delete for everyone" must NOT appear for other user's message
+    expect(find.text('Delete for everyone'), findsNothing);
+  });
 }

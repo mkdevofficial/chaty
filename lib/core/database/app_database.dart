@@ -7,7 +7,7 @@ import '../../features/chat/domain/message_model.dart';
 
 class AppDatabase {
   static const String _dbName = 'chaty_local.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
 
   Database? _db;
 
@@ -24,6 +24,19 @@ class AppDatabase {
     return await openDatabase(
       path,
       version: _dbVersion,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          try {
+            await db.execute('ALTER TABLE messages ADD COLUMN reply_to TEXT;');
+          } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE messages ADD COLUMN deleted INTEGER DEFAULT 0;');
+          } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE messages ADD COLUMN deleted_at TEXT;');
+          } catch (_) {}
+        }
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE conversations (
@@ -49,7 +62,10 @@ class AppDatabase {
             sticker TEXT,
             status TEXT,
             created_at TEXT,
-            local_file_path TEXT
+            local_file_path TEXT,
+            reply_to TEXT,
+            deleted INTEGER DEFAULT 0,
+            deleted_at TEXT
           );
         ''');
 
@@ -146,6 +162,9 @@ class AppDatabase {
           'status': msg.status.value,
           'created_at': msg.createdAt,
           'local_file_path': msg.localFilePath,
+          'reply_to': msg.replyTo != null ? jsonEncode(msg.replyTo!.toJson()) : null,
+          'deleted': msg.deleted ? 1 : 0,
+          'deleted_at': msg.deletedAt,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -173,6 +192,9 @@ class AppDatabase {
         'status': msg.status.value,
         'created_at': msg.createdAt,
         'local_file_path': msg.localFilePath,
+        'reply_to': msg.replyTo != null ? jsonEncode(msg.replyTo!.toJson()) : null,
+        'deleted': msg.deleted ? 1 : 0,
+        'deleted_at': msg.deletedAt,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -197,6 +219,9 @@ class AppDatabase {
         final stickerJson = row['sticker'] != null
             ? jsonDecode(row['sticker'] as String)
             : null;
+        final replyToJson = row['reply_to'] != null
+            ? jsonDecode(row['reply_to'] as String)
+            : null;
 
         list.add(
           MessageModel(
@@ -215,11 +240,31 @@ class AppDatabase {
             status: MessageStatusExtension.fromString(row['status'] as String?),
             createdAt: row['created_at'] as String,
             localFilePath: row['local_file_path'] as String?,
+            replyTo: replyToJson != null
+                ? MessageReplyTo.fromJson(replyToJson as Map<String, dynamic>)
+                : null,
+            deleted: (row['deleted'] as int? ?? 0) == 1,
+            deletedAt: row['deleted_at'] as String?,
           ),
         );
       } catch (_) {}
     }
     return list;
+  }
+
+  Future<void> deleteLocalMessage(int messageId) async {
+    final db = await database;
+    await db.delete('messages', where: 'id = ?', whereArgs: [messageId]);
+  }
+
+  Future<void> markMessageDeletedLocally(int messageId) async {
+    final db = await database;
+    await db.update(
+      'messages',
+      {'deleted': 1, 'text': null, 'attachment': null, 'sticker': null},
+      where: 'id = ?',
+      whereArgs: [messageId],
+    );
   }
 
   Future<void> updateMessageStatus(int messageId, MessageStatus status) async {

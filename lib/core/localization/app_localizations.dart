@@ -22,6 +22,18 @@ class ChatyStrings {
   String get edit => get('edit');
   String get confirm => get('confirm');
   String get close => get('close');
+  String get reply => get('reply');
+  String get copy => get('copy');
+  String get copiedToClipboard => get('copied_to_clipboard');
+  String get deleteForMe => get('delete_for_me');
+  String get deleteForEveryone => get('delete_for_everyone');
+  String get deleteMessageConfirm => get('delete_message_confirm');
+  String get thisMessageWasDeleted => get('this_message_was_deleted');
+  String get you => get('you');
+  String get originalMessageNotFound => get('original_message_not_found');
+  String get reconnecting => get('reconnecting');
+  String get connected => get('connected');
+  String get voiceMessage => get('voice_message');
 
   // Auth
   String get login => get('login');
@@ -165,6 +177,18 @@ class AppLocalizations {
     'edit': 'تعديل',
     'confirm': 'تأكيد',
     'close': 'إغلاق',
+    'reply': 'رد',
+    'copy': 'نسخ',
+    'copied_to_clipboard': 'تم النسخ إلى الحافظة',
+    'delete_for_me': 'حذف لدي',
+    'delete_for_everyone': 'حذف لدى الجميع',
+    'delete_message_confirm': 'هل تريد حذف هذه الرسالة؟',
+    'this_message_was_deleted': 'تم حذف هذه الرسالة',
+    'you': 'أنت',
+    'original_message_not_found': 'الرسالة الأصلية غير موجودة',
+    'reconnecting': 'جاري إعادة الاتصال...',
+    'connected': 'متصل',
+    'voice_message': 'رسالة صوتية',
 
     'login': 'تسجيل الدخول',
     'register': 'إنشاء حساب جديد',
@@ -282,6 +306,18 @@ class AppLocalizations {
     'edit': 'Edit',
     'confirm': 'Confirm',
     'close': 'Close',
+    'reply': 'Reply',
+    'copy': 'Copy',
+    'copied_to_clipboard': 'Copied to clipboard',
+    'delete_for_me': 'Delete for me',
+    'delete_for_everyone': 'Delete for everyone',
+    'delete_message_confirm': 'Delete this message?',
+    'this_message_was_deleted': 'This message was deleted',
+    'you': 'You',
+    'original_message_not_found': 'Original message not found',
+    'reconnecting': 'Reconnecting...',
+    'connected': 'Connected',
+    'voice_message': 'Voice message',
 
     'login': 'Login',
     'register': 'Register',

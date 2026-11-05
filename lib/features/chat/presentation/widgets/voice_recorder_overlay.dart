@@ -61,9 +61,20 @@ class VoiceRecorderOverlayState extends State<VoiceRecorderOverlay>
   }
 
   Future<void> _startRecording() async {
+    // Start ticking immediately
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _seconds++;
+        });
+      }
+    });
+
     try {
       final hasPermission = await _audioRecorder.hasPermission();
       if (!hasPermission) {
+        _timer?.cancel();
         widget.onCancel();
         return;
       }
@@ -81,15 +92,8 @@ class VoiceRecorderOverlayState extends State<VoiceRecorderOverlay>
         ),
         path: path,
       );
-
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (mounted) {
-          setState(() {
-            _seconds++;
-          });
-        }
-      });
     } catch (_) {
+      _timer?.cancel();
       widget.onCancel();
     }
   }
@@ -100,7 +104,7 @@ class VoiceRecorderOverlayState extends State<VoiceRecorderOverlay>
 
     try {
       final path = await _audioRecorder.stop();
-      if (path != null && _seconds >= 1) {
+      if (path != null) {
         final file = File(path);
         if (file.existsSync() && file.lengthSync() > 0) {
           if (mounted) {
@@ -108,7 +112,7 @@ class VoiceRecorderOverlayState extends State<VoiceRecorderOverlay>
             setState(() {
               _isPreviewMode = true;
               _recordedFile = file;
-              _recordedDurationMs = _seconds * 1000;
+              _recordedDurationMs = _seconds > 0 ? _seconds * 1000 : 1000;
             });
             await _initPreviewPlayer();
             return;
@@ -189,77 +193,7 @@ class VoiceRecorderOverlayState extends State<VoiceRecorderOverlay>
     }
 
     return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: theme.colorScheme.surface,
-      child: Row(
-        children: [
-          // Pulsing red recording dot
-          FadeTransition(
-            opacity: _pulseController,
-            child: Container(
-              width: 14,
-              height: 14,
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Duration timer
-          Text(
-            _formatTimer(_seconds),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          // Slide to cancel hint with animated chevron
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.chevron_left, size: 20, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  strings.slideToCancel,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Cancel (delete) button
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.red),
-            onPressed: cancel,
-          ),
-
-          // Stop recording button to go to preview
-          IconButton(
-            key: const Key('voice_stop_recording_button'),
-            tooltip: 'Stop & Preview',
-            icon: const Icon(Icons.stop_circle, color: Colors.red, size: 30),
-            onPressed: stopRecording,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewBar(ThemeData theme) {
-    final player = _previewPlayer;
-
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
@@ -268,105 +202,200 @@ class VoiceRecorderOverlayState extends State<VoiceRecorderOverlay>
           ),
         ),
       ),
-      child: Row(
-        children: [
-          // Delete / Cancel Button
-          IconButton(
-            key: const Key('voice_preview_delete_button'),
-            tooltip: 'Delete recording',
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-            onPressed: cancel,
-          ),
-
-          const SizedBox(width: 4),
-
-          // Play / Pause Button
-          if (player != null)
-            StreamBuilder<PlayerState>(
-              stream: player.playerStateStream,
-              builder: (context, snapshot) {
-                final isPlaying = snapshot.data?.playing ?? false;
-                final state = snapshot.data?.processingState;
-                if (state == ProcessingState.completed) {
-                  player.seek(Duration.zero);
-                  player.pause();
-                }
-
-                return IconButton(
-                  key: const Key('voice_preview_play_button'),
-                  tooltip: isPlaying ? 'Pause' : 'Play preview',
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                    color: theme.colorScheme.primary,
-                    size: 32,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              // Pulsing red recording dot
+              FadeTransition(
+                opacity: _pulseController,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
                   ),
-                  onPressed: () {
-                    if (isPlaying) {
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Duration timer
+              Text(
+                _formatTimer(_seconds),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Slide to cancel hint with animated chevron
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.chevron_left, size: 18, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        strings.slideToCancel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Cancel (delete) button
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                onPressed: cancel,
+              ),
+
+              // Stop recording button to go to preview
+              IconButton(
+                key: const Key('voice_stop_recording_button'),
+                tooltip: 'Stop & Preview',
+                icon: const Icon(Icons.stop_circle, color: Colors.red, size: 28),
+                onPressed: stopRecording,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewBar(ThemeData theme) {
+    final player = _previewPlayer;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              // Delete / Cancel Button
+              IconButton(
+                key: const Key('voice_preview_delete_button'),
+                tooltip: 'Delete recording',
+                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 24),
+                onPressed: cancel,
+              ),
+
+              const SizedBox(width: 4),
+
+              // Play / Pause Button
+              if (player != null)
+                StreamBuilder<PlayerState>(
+                  stream: player.playerStateStream,
+                  builder: (context, snapshot) {
+                    final isPlaying = snapshot.data?.playing ?? false;
+                    final state = snapshot.data?.processingState;
+                    if (state == ProcessingState.completed) {
+                      player.seek(Duration.zero);
                       player.pause();
-                    } else {
-                      player.play();
                     }
+
+                    return IconButton(
+                      key: const Key('voice_preview_play_button'),
+                      tooltip: isPlaying ? 'Pause' : 'Play preview',
+                      icon: Icon(
+                        isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_fill,
+                        color: theme.colorScheme.primary,
+                        size: 30,
+                      ),
+                      onPressed: () {
+                        if (isPlaying) {
+                          player.pause();
+                        } else {
+                          player.play();
+                        }
+                      },
+                    );
                   },
-                );
-              },
-            )
-          else
-            const Icon(Icons.play_circle_fill, size: 32, color: Colors.grey),
+                )
+              else
+                const Icon(Icons.play_circle_fill, size: 30, color: Colors.grey),
 
-          const SizedBox(width: 8),
+              const SizedBox(width: 8),
 
-          // Duration / progress text
-          Expanded(
-            child: player != null
-                ? StreamBuilder<Duration>(
-                    stream: player.positionStream,
-                    builder: (context, snapshot) {
-                      final pos = snapshot.data ?? Duration.zero;
-                      final totalSec = _seconds > 0 ? _seconds : 1;
-                      final posSec = pos.inSeconds.clamp(0, totalSec);
+              // Duration / progress text
+              Expanded(
+                child: player != null
+                    ? StreamBuilder<Duration>(
+                        stream: player.positionStream,
+                        builder: (context, snapshot) {
+                          final pos = snapshot.data ?? Duration.zero;
+                          final totalSec = _seconds > 0 ? _seconds : 1;
+                          final posSec = pos.inSeconds.clamp(0, totalSec);
 
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          LinearProgressIndicator(
-                            value: posSec / totalSec,
-                            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              theme.colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_formatTimer(posSec)} / ${_formatTimer(totalSec)}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFeatures: const [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  )
-                : Text(_formatTimer(_seconds)),
+                          return Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              LinearProgressIndicator(
+                                value: posSec / totalSec,
+                                backgroundColor:
+                                    theme.colorScheme.surfaceContainerHighest,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${_formatTimer(posSec)} / ${_formatTimer(totalSec)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      )
+                    : Text(_formatTimer(_seconds)),
+              ),
+
+              const SizedBox(width: 8),
+
+              // Clearly Visible SEND Button
+              CircleAvatar(
+                key: const Key('voice_preview_send_button'),
+                radius: 22,
+                backgroundColor: theme.colorScheme.primary,
+                child: IconButton(
+                  tooltip: 'Send voice note',
+                  icon: const Icon(Icons.send_rounded, size: 20),
+                  color: theme.colorScheme.onPrimary,
+                  onPressed: _sendRecording,
+                ),
+              ),
+            ],
           ),
-
-          const SizedBox(width: 12),
-
-          // Clearly Visible SEND Button
-          CircleAvatar(
-            key: const Key('voice_preview_send_button'),
-            radius: 22,
-            backgroundColor: theme.colorScheme.primary,
-            child: IconButton(
-              tooltip: 'Send voice note',
-              icon: const Icon(Icons.send_rounded, size: 20),
-              color: theme.colorScheme.onPrimary,
-              onPressed: _sendRecording,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
