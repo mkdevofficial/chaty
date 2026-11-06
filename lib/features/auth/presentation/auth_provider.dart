@@ -91,6 +91,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<bool> loginWithGoogle({
+    String? idToken,
+    String? accessToken,
+    String? email,
+    String? displayName,
+    String? photoUrl,
+    String? googleId,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+    try {
+      final user = await _repository.loginWithGoogle(
+        idToken: idToken,
+        accessToken: accessToken,
+        email: email,
+        displayName: displayName,
+        photoUrl: photoUrl,
+        googleId: googleId,
+      );
+      state = state.copyWith(status: AuthStatus.authenticated, user: user);
+      _ref.read(webSocketServiceProvider).connect();
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
   Future<bool> register({
     required String phone,
     required String username,

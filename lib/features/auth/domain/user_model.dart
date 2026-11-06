@@ -8,6 +8,8 @@ class UserModel {
   final bool isFollower;
   final bool online;
   final String? lastSeen;
+  final String? email;
+  final String? googleId;
 
   const UserModel({
     required this.id,
@@ -19,6 +21,8 @@ class UserModel {
     this.isFollower = false,
     this.online = false,
     this.lastSeen,
+    this.email,
+    this.googleId,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +44,8 @@ class UserModel {
       isFollower: json['is_follower'] == true || json['is_follower'] == 1,
       online: json['online'] == true || json['online'] == 1,
       lastSeen: json['last_seen'] as String?,
+      email: json['email'] as String?,
+      googleId: json['google_id'] as String?,
     );
   }
 
@@ -66,6 +72,8 @@ class UserModel {
       'is_follower': isFollower,
       'online': online,
       'last_seen': lastSeen,
+      'email': email,
+      'google_id': googleId,
     };
   }
 
@@ -79,6 +87,8 @@ class UserModel {
     bool? isFollower,
     bool? online,
     String? lastSeen,
+    String? email,
+    String? googleId,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -90,6 +100,8 @@ class UserModel {
       isFollower: isFollower ?? this.isFollower,
       online: online ?? this.online,
       lastSeen: lastSeen ?? this.lastSeen,
+      email: email ?? this.email,
+      googleId: googleId ?? this.googleId,
     );
   }
 }

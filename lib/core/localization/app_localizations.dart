@@ -55,6 +55,9 @@ class ChatyStrings {
   String get invalidUsername => get('invalid_username');
   String get invalidPassword => get('invalid_password');
   String get invalidDisplayName => get('invalid_display_name');
+  String get continueWithGoogle => get('continue_with_google');
+  String get googleSignInFailed => get('google_sign_in_failed');
+  String get or => get('or');
 
   // Chats & Messages
   String get chats => get('chats');
@@ -209,6 +212,9 @@ class AppLocalizations {
     'invalid_username': 'اسم المستخدم يجب أن يتكون من 3 أحرف على الأقل',
     'invalid_password': 'كلمة المرور يجب ألا تقل عن 6 خانات',
     'invalid_display_name': 'يرجى إدخال اسمك الظاهر',
+    'continue_with_google': 'المتابعة باستخدام Google',
+    'google_sign_in_failed': 'فشل تسجيل الدخول باستخدام Google',
+    'or': 'أو',
 
     'chats': 'المحادثات',
     'no_chats_yet': 'لا توجد محادثات حتى الآن',
@@ -338,6 +344,9 @@ class AppLocalizations {
     'invalid_username': 'Username must be at least 3 characters',
     'invalid_password': 'Password must be at least 6 characters',
     'invalid_display_name': 'Please enter a display name',
+    'continue_with_google': 'Continue with Google',
+    'google_sign_in_failed': 'Google Sign-In failed',
+    'or': 'OR',
 
     'chats': 'Chats',
     'no_chats_yet': 'No conversations yet',

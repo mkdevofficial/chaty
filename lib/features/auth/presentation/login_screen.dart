@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/theme_provider.dart';
 import 'auth_provider.dart';
@@ -44,6 +45,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      final googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+      );
+      final account = await googleSignIn.signIn();
+      if (account == null) return;
+
+      final auth = await account.authentication;
+      final success = await ref.read(authProvider.notifier).loginWithGoogle(
+            idToken: auth.idToken,
+            accessToken: auth.accessToken,
+            email: account.email,
+            displayName: account.displayName,
+            photoUrl: account.photoUrl,
+            googleId: account.id,
+          );
+
+      if (!success && mounted) {
+        final error = ref.read(authProvider).errorMessage;
+        final strings = AppLocalizations.of(context).strings;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error ?? strings.googleSignInFailed),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final strings = AppLocalizations.of(context).strings;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${strings.googleSignInFailed}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -188,6 +230,62 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : Text(strings.login),
                 ),
                 const SizedBox(height: 20),
+
+                // Divider OR
+                Row(
+                  children: [
+                    Expanded(
+                      child: Divider(
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        strings.or,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Divider(
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Google Sign In Button
+                OutlinedButton.icon(
+                  onPressed: authState.isLoading ? null : _signInWithGoogle,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.g_mobiledata_rounded,
+                    size: 28,
+                    color: Color(0xFF4285F4),
+                  ),
+                  label: Text(
+                    strings.continueWithGoogle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Register Link
                 TextButton(

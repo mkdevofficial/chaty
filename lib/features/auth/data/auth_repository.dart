@@ -62,6 +62,36 @@ class AuthRepository {
     return user;
   }
 
+  Future<UserModel> loginWithGoogle({
+    String? idToken,
+    String? accessToken,
+    String? email,
+    String? displayName,
+    String? photoUrl,
+    String? googleId,
+  }) async {
+    final response = await apiClient.post(
+      '/auth/google',
+      data: {
+        'id_token': ?idToken,
+        'access_token': ?accessToken,
+        'email': ?email,
+        'display_name': ?displayName,
+        'photo_url': ?photoUrl,
+        'google_id': ?googleId,
+      },
+    );
+
+    final token = response['token'] as String;
+    final userData = response['user'] as Map<String, dynamic>;
+    final user = UserModel.fromJson(userData);
+
+    await authStorage.saveToken(token);
+    await authStorage.saveUserId(user.id);
+
+    return user;
+  }
+
   Future<void> logout() async {
     try {
       await apiClient.post('/auth/logout');
