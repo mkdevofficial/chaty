@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class AuthStorage {
   static const String _keyToken = 'chaty_auth_token';
   static const String _keyUserId = 'chaty_user_id';
+  static const String _keyUserProfile = 'chaty_user_profile';
 
   final FlutterSecureStorage _storage;
 
@@ -29,8 +30,17 @@ class AuthStorage {
     return null;
   }
 
+  Future<void> saveUserProfile(String jsonStr) async {
+    await _storage.write(key: _keyUserProfile, value: jsonStr);
+  }
+
+  Future<String?> getUserProfile() async {
+    return await _storage.read(key: _keyUserProfile);
+  }
+
   Future<void> clear() async {
     await _storage.delete(key: _keyToken);
     await _storage.delete(key: _keyUserId);
+    await _storage.delete(key: _keyUserProfile);
   }
 }

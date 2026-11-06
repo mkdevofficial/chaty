@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/auth/presentation/auth_provider.dart';
 import '../database/app_database.dart';
 import '../network/api_client.dart';
 import '../network/websocket_service.dart';
@@ -17,8 +18,8 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     authStorage: authStorage,
     onUnauthorized: () {
-      // Auto logout trigger
-      ref.read(webSocketServiceProvider).disconnect();
+      // Auto logout on genuine 401 Unauthorized
+      ref.read(authProvider.notifier).logout();
     },
   );
 });

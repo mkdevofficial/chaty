@@ -22,7 +22,13 @@ android {
         versionName = flutter.versionName
     }
 
-    val keystoreFile = project.rootProject.file("key.jks")
+    val keystoreFile = if (project.rootProject.file("key.jks").exists()) {
+        project.rootProject.file("key.jks")
+    } else if (file("release.jks").exists()) {
+        file("release.jks")
+    } else {
+        project.rootProject.file("key.jks")
+    }
     signingConfigs {
         create("release") {
             if (keystoreFile.exists()) {

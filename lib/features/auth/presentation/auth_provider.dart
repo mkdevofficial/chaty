@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/api_exceptions.dart';
 import '../../../core/providers/core_providers.dart';
 import '../data/auth_repository.dart';
 import '../domain/user_model.dart';
@@ -54,24 +56,63 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> checkAuth() async {
-    final token = await _ref.read(authStorageProvider).getToken();
+    final storage = _ref.read(authStorageProvider);
+    final token = await storage.getToken();
     if (token == null || token.isEmpty) {
       state = state.copyWith(status: AuthStatus.unauthenticated);
       return;
     }
 
-    state = state.copyWith(status: AuthStatus.loading);
+    // Attempt to load cached profile for instant startup
+    final cachedProfileStr = await storage.getUserProfile();
+    UserModel? cachedUser;
+    if (cachedProfileStr != null && cachedProfileStr.isNotEmpty) {
+      try {
+        final Map<String, dynamic> data = jsonDecode(cachedProfileStr);
+        cachedUser = UserModel.fromJson(data);
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: cachedUser,
+        );
+        _ref.read(webSocketServiceProvider).connect();
+      } catch (_) {}
+    }
+
+    if (cachedUser == null) {
+      state = state.copyWith(status: AuthStatus.loading);
+    }
+
     try {
       final user = await _repository.getMe();
+      await storage.saveUserProfile(jsonEncode(user.toJson()));
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       _ref.read(webSocketServiceProvider).connect();
     } catch (e) {
-      // Token might be expired or invalid
-      await _ref.read(authStorageProvider).clear();
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: e.toString(),
-      );
+      if (e is ApiException && e.statusCode == 401) {
+        // Token is genuinely invalid or expired on server
+        await storage.clear();
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          errorMessage: e.toString(),
+        );
+      } else {
+        // Network timeout, server restarting, or connection dropped:
+        // Do NOT log out! Keep existing user session active.
+        if (state.user == null) {
+          final cachedId = await storage.getUserId() ?? 0;
+          state = state.copyWith(
+            status: AuthStatus.authenticated,
+            user: UserModel(
+              id: cachedId,
+              phone: '',
+              username: 'me',
+              displayName: 'Me',
+              createdAt: DateTime.now().toIso8601String(),
+            ),
+          );
+          _ref.read(webSocketServiceProvider).connect();
+        }
+      }
     }
   }
 
@@ -79,6 +120,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     try {
       final user = await _repository.login(phone: phone, password: password);
+      await _ref.read(authStorageProvider).saveUserProfile(jsonEncode(user.toJson()));
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       _ref.read(webSocketServiceProvider).connect();
       return true;
@@ -109,6 +151,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         photoUrl: photoUrl,
         googleId: googleId,
       );
+      await _ref.read(authStorageProvider).saveUserProfile(jsonEncode(user.toJson()));
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       _ref.read(webSocketServiceProvider).connect();
       return true;
@@ -135,6 +178,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         displayName: displayName,
         password: password,
       );
+      await _ref.read(authStorageProvider).saveUserProfile(jsonEncode(user.toJson()));
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       _ref.read(webSocketServiceProvider).connect();
       return true;
@@ -165,6 +209,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         bio: bio,
         username: username,
       );
+      await _ref.read(authStorageProvider).saveUserProfile(jsonEncode(user.toJson()));
       state = state.copyWith(user: user);
       return true;
     } catch (e) {
@@ -176,6 +221,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> updateAvatar(File imageFile) async {
     try {
       final user = await _repository.uploadAvatar(imageFile);
+      await _ref.read(authStorageProvider).saveUserProfile(jsonEncode(user.toJson()));
       state = state.copyWith(user: user);
       return true;
     } catch (e) {
