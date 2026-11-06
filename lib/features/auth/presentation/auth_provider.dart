@@ -52,6 +52,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final Ref _ref;
 
   AuthNotifier(this._repository, this._ref) : super(const AuthState()) {
+    _ref.read(apiClientProvider).onUnauthorized = () {
+      logout();
+    };
     checkAuth();
   }
 
@@ -104,10 +107,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             status: AuthStatus.authenticated,
             user: UserModel(
               id: cachedId,
-              phone: '',
               username: 'me',
               displayName: 'Me',
-              createdAt: DateTime.now().toIso8601String(),
             ),
           );
           _ref.read(webSocketServiceProvider).connect();
