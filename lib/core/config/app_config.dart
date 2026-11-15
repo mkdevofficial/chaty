@@ -7,6 +7,9 @@ class AppConfig {
   static const String defaultBaseUrl = 'http://185.196.20.220:5050';
   static const String defaultWsUrl = 'ws://185.196.20.220:5050/ws';
 
+  static const String googleClientId =
+      '361634942618-eru327on27tqpj83evfogahmt6tgg9co.apps.googleusercontent.com';
+
   static String _baseUrl = defaultBaseUrl;
   static String _wsUrl = defaultWsUrl;
 

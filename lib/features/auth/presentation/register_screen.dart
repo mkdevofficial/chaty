@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/localization/app_localizations.dart';
 import 'auth_provider.dart';
 
@@ -21,9 +21,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  static const String appPackageName = 'com.mkdev.chaty';
-  static const String appSha1 =
-      '14:7D:FD:4F:65:11:AF:C6:D9:F9:F5:03:5F:99:F7:54:AD:2C:06:4E';
 
   @override
   void dispose() {
@@ -65,6 +62,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _signInWithGoogle() async {
     try {
       final googleSignIn = GoogleSignIn(
+        serverClientId: AppConfig.googleClientId,
+        clientId: AppConfig.googleClientId,
         scopes: ['email', 'profile'],
       );
       final account = await googleSignIn.signIn();
@@ -94,142 +93,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      final errStr = e.toString();
-      if (errStr.contains('10') || errStr.toLowerCase().contains('developer_error')) {
-        _showGoogleConfigErrorDialog();
-      } else {
-        final strings = AppLocalizations.of(context).strings;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${strings.googleSignInFailed}: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      final strings = AppLocalizations.of(context).strings;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${strings.googleSignInFailed}: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-  }
-
-  void _showGoogleConfigErrorDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Google Sign-In (Code 10)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'حدث خطأ مطور (Developer Error: 10) لأن بصمة SHA-1 غير مضافة في Google Cloud Console لمشروعك.\n\n'
-                  'لحل المشكلة، افتح Google Cloud Console وأضف بيانات التطبيق التالية:',
-                  style: TextStyle(fontSize: 13, height: 1.4),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Package Name:',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: SelectableText(
-                              appPackageName,
-                              style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 18),
-                            onPressed: () {
-                              Clipboard.setData(const ClipboardData(text: appPackageName));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Package Name copied!')),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 12),
-                      const Text(
-                        'SHA-1 Fingerprint:',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: SelectableText(
-                              appSha1,
-                              style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 18),
-                            onPressed: () {
-                              Clipboard.setData(const ClipboardData(text: appSha1));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('SHA-1 copied!')),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'أو يمكنك تسجيل الدخول المباشر بحساب Google تجريبي للاختبار الفوري:',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('إغلاق / Close'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.flash_on, size: 18),
-              label: const Text('دخول تجريبي بـ Google'),
-              onPressed: () async {
-                Navigator.of(ctx).pop();
-                final testId = DateTime.now().millisecondsSinceEpoch.toString();
-                final success = await ref.read(authProvider.notifier).loginWithGoogle(
-                      email: 'google_user_$testId@gmail.com',
-                      displayName: 'Google Tester',
-                      googleId: 'google_$testId',
-                    );
-                if (success && mounted) {
-                  context.go('/');
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
