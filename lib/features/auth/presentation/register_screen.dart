@@ -21,7 +21,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  static const String appPackageName = 'com.example.chaty';
+  static const String appPackageName = 'com.mkdev.chaty';
   static const String appSha1 =
       '95:A2:35:6D:06:BB:51:6E:81:D7:59:C4:63:88:C6:F8:30:D0:E6:1F';
 
@@ -426,7 +426,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: Text(
                     strings.continueWithGoogle,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,
                     ),

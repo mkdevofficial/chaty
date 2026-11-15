@@ -100,7 +100,8 @@ class MessageBubble extends StatelessWidget {
         child: Text(
           message.text ?? '',
           style: TextStyle(
-            fontSize: 15.5,
+            fontSize: 13.5,
+            height: 1.35,
             color: isOutgoing
                 ? theme.colorScheme.onPrimary
                 : theme.colorScheme.onSurface,

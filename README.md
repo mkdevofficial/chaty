@@ -55,8 +55,6 @@ static const String defaultBaseUrl = 'http://185.196.20.220:5050';
 static const String defaultWsUrl = 'ws://185.196.20.220:5050/ws';
 ```
 
-Additionally, users can customize or override the server URL dynamically inside the app by navigating to **Settings -> Server Configuration**.
-
 ### Cleartext & Transport Security
 - **Android**: Cleartext traffic is enabled in `android/app/src/main/AndroidManifest.xml` via `android:usesCleartextTraffic="true"` and configured through `android/app/src/main/res/xml/network_security_config.xml`.
 - **iOS**: Configured in `ios/Runner/Info.plist` with `NSAppTransportSecurity` and `NSAllowsArbitraryLoads: true`.
@@ -93,10 +91,22 @@ gh secret set KEY_PASSWORD -b "YourKeyPasswordHere"
 
 ## 📦 Downloading Release APKs
 
-On each CI run, GitHub Actions builds release APKs split per ABI for optimal file size:
-- `app-arm64-v8a-release.apk` (modern Android devices)
-- `app-armeabi-v7a-release.apk` (32-bit ARM devices)
-- `app-x86_64-release.apk` (emulators and x86 devices)
+On each CI run, GitHub Actions builds both Universal and ABI-split release APKs:
+- `chaty-universal-release.apk` (Universal FAT APK — recommended for **Uptodown** and all Android devices)
+- `chaty-arm64-v8a-release.apk` (modern 64-bit Android devices)
+- `chaty-armeabi-v7a-release.apk` (32-bit ARM devices)
+- `chaty-x86_64-release.apk` (emulators and x86 devices)
+
+---
+
+## 🚀 Uptodown Publishing Kit
+
+Chaty is fully prepared for distribution on the [Uptodown App Store](https://developers.uptodown.com):
+- **Publishing Guide**: Full step-by-step instructions in [`uptodown/UPTODOWN_PUBLISHING_GUIDE.md`](file:///home/kali/chaty/uptodown/UPTODOWN_PUBLISHING_GUIDE.md).
+- **Arabic Metadata & ASO**: [`uptodown/metadata/app_info_ar.md`](file:///home/kali/chaty/uptodown/metadata/app_info_ar.md).
+- **English Metadata & ASO**: [`uptodown/metadata/app_info_en.md`](file:///home/kali/chaty/uptodown/metadata/app_info_en.md).
+- **512x512 Store Icon**: [`uptodown/assets/icon_512x512.png`](file:///home/kali/chaty/uptodown/assets/icon_512x512.png).
+- **Production Application ID**: `com.mkdev.chaty`.
 
 ### From GitHub Actions Workflow Artifacts
 1. Go to the GitHub repository: [github.com/mkdevofficial/chaty](https://github.com/mkdevofficial/chaty).

@@ -629,7 +629,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   children: [
                     Text(
                       otherUser.displayName,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       chatState.isOtherUserTyping
@@ -641,7 +641,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   isArabic: isArabic,
                                 )),
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: chatState.isOtherUserTyping
                             ? theme.colorScheme.primary
                             : (otherUser.online

@@ -153,7 +153,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     ? const Color(0xFF00D856)
                     : theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
-                fontSize: 13,
+                fontSize: 11.5,
               ),
             ),
             const SizedBox(height: 24),
@@ -227,7 +227,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 ),
                 child: Text(
                   _user.bio,
-                  style: const TextStyle(fontSize: 15, height: 1.4),
+                  style: const TextStyle(fontSize: 13, height: 1.35),
                 ),
               ),
             ],

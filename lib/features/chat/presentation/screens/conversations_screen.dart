@@ -88,9 +88,9 @@ class ConversationsScreen extends ConsumerWidget {
         title: Text(
           strings.appName,
           style: const TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 22,
-            letterSpacing: 0.5,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: 0.3,
           ),
         ),
         leading: Padding(
@@ -203,7 +203,7 @@ class ConversationsScreen extends ConsumerWidget {
                               otherUser.displayName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                fontSize: 14,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -212,7 +212,7 @@ class ConversationsScreen extends ConsumerWidget {
                           Text(
                             timeStr,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: conv.unreadCount > 0
                                   ? theme.colorScheme.primary
                                   : theme.colorScheme.onSurfaceVariant,

@@ -368,7 +368,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 13.5,
                             ),
                           ),
                         ),

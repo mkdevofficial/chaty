@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.chaty"
+    namespace = "com.mkdev.chaty"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.chaty"
+        applicationId = "com.mkdev.chaty"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

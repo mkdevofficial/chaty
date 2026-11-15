@@ -90,6 +90,11 @@ flutter:
     - assets/stickers/cats/
     - assets/stickers/gestures/
 
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo.ttf
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

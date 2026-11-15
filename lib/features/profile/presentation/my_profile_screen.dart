@@ -200,7 +200,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           Text(
                             '${friendsState.following.length}',
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 16.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -208,7 +208,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           Text(
                             strings.following,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 11.5,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -239,7 +239,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           Text(
                             '${friendsState.followers.length}',
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 16.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -247,7 +247,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           Text(
                             strings.followers,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 11.5,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),

@@ -1,4 +1,4 @@
-package com.example.chaty
+package com.mkdev.chaty
 
 import io.flutter.embedding.android.FlutterActivity
 
