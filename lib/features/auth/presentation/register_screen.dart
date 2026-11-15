@@ -23,7 +23,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   static const String appPackageName = 'com.mkdev.chaty';
   static const String appSha1 =
-      '95:A2:35:6D:06:BB:51:6E:81:D7:59:C4:63:88:C6:F8:30:D0:E6:1F';
+      '14:7D:FD:4F:65:11:AF:C6:D9:F9:F5:03:5F:99:F7:54:AD:2C:06:4E';
 
   @override
   void dispose() {
