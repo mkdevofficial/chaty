@@ -60,6 +60,7 @@ dependencies:
   mime: ^2.1.0
   google_sign_in: ^6.2.2
   yandex_mobileads: ^8.6.0
+  supabase_flutter: ^2.18.3
 
 dependency_overrides:
   permission_handler_android: 13.0.1

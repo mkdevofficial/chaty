@@ -2,19 +2,29 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/supabase_service.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
 
 class ChatRepository {
   final ApiClient apiClient;
   final AppDatabase database;
+  final SupabaseService? supabaseService;
+  final AuthStorage? authStorage;
 
   ChatRepository({
     required this.apiClient,
     required this.database,
+    this.supabaseService,
+    this.authStorage,
   });
+
+  bool get _shouldUseSupabase =>
+      AppConfig.useSupabase && supabaseService != null && supabaseService!.isInitialized;
 
   // --- Conversations ---
 
@@ -23,6 +33,17 @@ class ChatRepository {
   }
 
   Future<List<ConversationModel>> fetchConversations() async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId();
+      if (currentUserId != null) {
+        final list = await supabaseService!.fetchConversations(currentUserId);
+        final conversations =
+            list.map((e) => ConversationModel.fromJson(e)).toList();
+        await database.saveConversations(conversations);
+        return conversations;
+      }
+    }
+
     final response = await apiClient.get('/conversations');
     final List<dynamic> list = response is List
         ? response
@@ -37,6 +58,16 @@ class ChatRepository {
   }
 
   Future<ConversationModel> getOrCreateConversation(int userId) async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId();
+      if (currentUserId != null) {
+        final data = await supabaseService!.getOrCreateConversation(currentUserId, userId);
+        final conv = ConversationModel.fromJson(data);
+        await database.saveConversations([conv]);
+        return conv;
+      }
+    }
+
     final response = await apiClient.post(
       '/conversations',
       data: {'user_id': userId},
@@ -62,6 +93,17 @@ class ChatRepository {
     int? beforeMessageId,
     int limit = 30,
   }) async {
+    if (_shouldUseSupabase) {
+      final rows = await supabaseService!.fetchMessages(
+        conversationId,
+        beforeMessageId: beforeMessageId,
+        limit: limit,
+      );
+      final messages = rows.map((e) => MessageModel.fromJson(e)).toList();
+      await database.saveMessages(messages);
+      return messages;
+    }
+
     final Map<String, dynamic> query = {'limit': limit};
     if (beforeMessageId != null) {
       query['before'] = beforeMessageId;
@@ -90,6 +132,20 @@ class ChatRepository {
     required String clientId,
     int? replyToId,
   }) async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId() ?? 0;
+      final data = await supabaseService!.sendTextMessage(
+        conversationId: conversationId,
+        senderId: currentUserId,
+        text: text,
+        clientId: clientId,
+        replyToId: replyToId,
+      );
+      final message = MessageModel.fromJson(data);
+      await database.saveSingleMessage(message);
+      return message;
+    }
+
     final response = await apiClient.post(
       '/conversations/$conversationId/messages',
       data: {
@@ -116,6 +172,21 @@ class ChatRepository {
     required String clientId,
     int? replyToId,
   }) async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId() ?? 0;
+      final data = await supabaseService!.sendStickerMessage(
+        conversationId: conversationId,
+        senderId: currentUserId,
+        pack: pack,
+        stickerId: id,
+        clientId: clientId,
+        replyToId: replyToId,
+      );
+      final message = MessageModel.fromJson(data);
+      await database.saveSingleMessage(message);
+      return message;
+    }
+
     final response = await apiClient.post(
       '/conversations/$conversationId/messages',
       data: {
@@ -146,6 +217,23 @@ class ChatRepository {
     int? replyToId,
     void Function(int sent, int total)? onProgress,
   }) async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId() ?? 0;
+      final data = await supabaseService!.sendAttachmentMessage(
+        conversationId: conversationId,
+        senderId: currentUserId,
+        file: file,
+        type: type,
+        caption: caption ?? text,
+        clientId: clientId,
+        durationMs: durationMs,
+        replyToId: replyToId,
+      );
+      final message = MessageModel.fromJson(data);
+      await database.saveSingleMessage(message);
+      return message;
+    }
+
     final fileName = file.path.split('/').last;
     final detectedMime = lookupMimeType(file.path) ?? 'application/octet-stream';
 
@@ -196,6 +284,13 @@ class ChatRepository {
 
   Future<void> markConversationAsRead(int conversationId) async {
     try {
+      if (_shouldUseSupabase) {
+        final currentUserId = await authStorage?.getUserId();
+        if (currentUserId != null) {
+          await supabaseService!.markConversationRead(conversationId, currentUserId);
+          return;
+        }
+      }
       await apiClient.post(
         '/conversations/$conversationId/read',
         data: {}, // Sends empty JSON object to avoid 415 Unsupported Media Type
@@ -209,12 +304,23 @@ class ChatRepository {
     required String scope, // 'me' or 'everyone'
   }) async {
     try {
-      await apiClient.delete(
-        '/conversations/$conversationId/messages/$messageId',
-        queryParameters: {'scope': scope},
-      );
+      if (_shouldUseSupabase) {
+        final currentUserId = await authStorage?.getUserId();
+        if (currentUserId != null) {
+          await supabaseService!.deleteMessage(
+            messageId,
+            currentUserId,
+            forEveryone: scope == 'everyone',
+          );
+        }
+      } else {
+        await apiClient.delete(
+          '/conversations/$conversationId/messages/$messageId',
+          queryParameters: {'scope': scope},
+        );
+      }
     } catch (_) {
-      // In case route is missing on server, client optimistic state still succeeds
+      // Optimistic delete still succeeds locally
     }
 
     if (scope == 'me') {

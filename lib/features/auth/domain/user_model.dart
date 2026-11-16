@@ -4,6 +4,7 @@ class UserModel {
   final String displayName;
   final String bio;
   final int? avatarFileId;
+  final String? avatarUrl;
   final bool isFollowing;
   final bool isFollower;
   final bool online;
@@ -17,6 +18,7 @@ class UserModel {
     required this.displayName,
     this.bio = '',
     this.avatarFileId,
+    this.avatarUrl,
     this.isFollowing = false,
     this.isFollower = false,
     this.online = false,
@@ -40,6 +42,7 @@ class UserModel {
               ? json['avatar_file_id'] as int
               : int.tryParse(json['avatar_file_id'].toString()))
           : null,
+      avatarUrl: json['avatar_url'] as String?,
       isFollowing: json['is_following'] == true || json['is_following'] == 1,
       isFollower: json['is_follower'] == true || json['is_follower'] == 1,
       online: json['online'] == true || json['online'] == 1,
@@ -68,6 +71,7 @@ class UserModel {
       'display_name': displayName,
       'bio': bio,
       'avatar_file_id': avatarFileId,
+      'avatar_url': avatarUrl,
       'is_following': isFollowing,
       'is_follower': isFollower,
       'online': online,
@@ -83,6 +87,7 @@ class UserModel {
     String? displayName,
     String? bio,
     int? avatarFileId,
+    String? avatarUrl,
     bool? isFollowing,
     bool? isFollower,
     bool? online,
@@ -96,6 +101,7 @@ class UserModel {
       displayName: displayName ?? this.displayName,
       bio: bio ?? this.bio,
       avatarFileId: avatarFileId ?? this.avatarFileId,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       isFollowing: isFollowing ?? this.isFollowing,
       isFollower: isFollower ?? this.isFollower,
       online: online ?? this.online,

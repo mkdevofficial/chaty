@@ -2,16 +2,51 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/supabase_service.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../auth/domain/user_model.dart';
 import '../domain/story_model.dart';
 
 class StoriesRepository {
   final ApiClient apiClient;
+  final SupabaseService? supabaseService;
+  final AuthStorage? authStorage;
 
-  StoriesRepository({required this.apiClient});
+  StoriesRepository({
+    required this.apiClient,
+    this.supabaseService,
+    this.authStorage,
+  });
+
+  bool get _shouldUseSupabase =>
+      AppConfig.useSupabase && supabaseService != null && supabaseService!.isInitialized;
 
   Future<List<StoryGroup>> fetchStories() async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId() ?? 0;
+      final list = await supabaseService!.fetchStories(currentUserId);
+      final List<StoryGroup> groups = [];
+      for (final item in list) {
+        final story = StoryModel.fromJson(item);
+        final user = story.user ??
+            UserModel(
+              id: story.userId,
+              username: 'user_${story.userId}',
+              displayName: 'User ${story.userId}',
+            );
+        final existingGroup =
+            groups.where((g) => g.user.id == story.userId).firstOrNull;
+        if (existingGroup != null) {
+          existingGroup.stories.add(story);
+        } else {
+          groups.add(StoryGroup(user: user, stories: [story]));
+        }
+      }
+      return groups;
+    }
+
     final response = await apiClient.get('/stories');
     final List<dynamic> list = response is List
         ? response
@@ -51,6 +86,17 @@ class StoriesRepository {
     String? caption,
     void Function(int sent, int total)? onProgress,
   }) async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId() ?? 0;
+      final data = await supabaseService!.createStory(
+        userId: currentUserId,
+        type: 'image',
+        file: imageFile,
+        caption: caption,
+      );
+      return StoryModel.fromJson(data);
+    }
+
     final fileName = imageFile.path.split('/').last;
     final detectedMime = lookupMimeType(imageFile.path) ?? 'image/jpeg';
 
@@ -86,6 +132,17 @@ class StoriesRepository {
     required String text,
     required String bgColor,
   }) async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId() ?? 0;
+      final data = await supabaseService!.createStory(
+        userId: currentUserId,
+        type: 'text',
+        text: text,
+        bgColor: bgColor,
+      );
+      return StoryModel.fromJson(data);
+    }
+
     final response = await apiClient.post(
       '/stories',
       data: {
@@ -103,6 +160,11 @@ class StoriesRepository {
 
   Future<void> markStoryViewed(int storyId) async {
     try {
+      if (_shouldUseSupabase) {
+        final currentUserId = await authStorage?.getUserId() ?? 0;
+        await supabaseService!.viewStory(storyId, currentUserId);
+        return;
+      }
       await apiClient.post('/stories/$storyId/view', data: {});
     } catch (_) {}
   }
@@ -119,6 +181,11 @@ class StoriesRepository {
   }
 
   Future<void> deleteStory(int storyId) async {
+    if (_shouldUseSupabase) {
+      final currentUserId = await authStorage?.getUserId() ?? 0;
+      await supabaseService!.deleteStory(storyId, currentUserId);
+      return;
+    }
     await apiClient.delete('/stories/$storyId');
   }
 }

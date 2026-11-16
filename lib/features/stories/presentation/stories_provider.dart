@@ -7,7 +7,13 @@ import '../domain/story_model.dart';
 
 final storiesRepositoryProvider = Provider<StoriesRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return StoriesRepository(apiClient: apiClient);
+  final supabaseService = ref.watch(supabaseServiceProvider);
+  final authStorage = ref.watch(authStorageProvider);
+  return StoriesRepository(
+    apiClient: apiClient,
+    supabaseService: supabaseService,
+    authStorage: authStorage,
+  );
 });
 
 class StoriesState {

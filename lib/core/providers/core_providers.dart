@@ -1,11 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 import '../network/api_client.dart';
+import '../network/supabase_service.dart';
 import '../network/websocket_service.dart';
 import '../storage/auth_storage.dart';
 
 final authStorageProvider = Provider<AuthStorage>((ref) {
   return AuthStorage();
+});
+
+final supabaseServiceProvider = Provider<SupabaseService>((ref) {
+  return SupabaseService();
 });
 
 final databaseProvider = Provider<AppDatabase>((ref) {

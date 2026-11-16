@@ -1,18 +1,25 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/supabase_service.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../domain/user_model.dart';
 
 class AuthRepository {
   final ApiClient apiClient;
   final AuthStorage authStorage;
+  final SupabaseService? supabaseService;
 
   AuthRepository({
     required this.apiClient,
     required this.authStorage,
+    this.supabaseService,
   });
+
+  bool get _shouldUseSupabase =>
+      AppConfig.useSupabase && supabaseService != null && supabaseService!.isInitialized;
 
   Future<UserModel> register({
     required String phone,
@@ -20,6 +27,21 @@ class AuthRepository {
     required String displayName,
     required String password,
   }) async {
+    if (_shouldUseSupabase) {
+      final res = await supabaseService!.register(
+        phone: phone,
+        username: username,
+        displayName: displayName,
+        password: password,
+      );
+      final token = res['token'] as String;
+      final userData = res['user'] as Map<String, dynamic>;
+      final user = UserModel.fromJson(userData);
+      await authStorage.saveToken(token);
+      await authStorage.saveUserId(user.id);
+      return user;
+    }
+
     final response = await apiClient.post(
       '/auth/register',
       data: {
@@ -44,6 +66,19 @@ class AuthRepository {
     required String phone,
     required String password,
   }) async {
+    if (_shouldUseSupabase) {
+      final res = await supabaseService!.login(
+        phone: phone,
+        password: password,
+      );
+      final token = res['token'] as String;
+      final userData = res['user'] as Map<String, dynamic>;
+      final user = UserModel.fromJson(userData);
+      await authStorage.saveToken(token);
+      await authStorage.saveUserId(user.id);
+      return user;
+    }
+
     final response = await apiClient.post(
       '/auth/login',
       data: {
@@ -70,6 +105,23 @@ class AuthRepository {
     String? photoUrl,
     String? googleId,
   }) async {
+    if (_shouldUseSupabase) {
+      final res = await supabaseService!.loginWithGoogle(
+        idToken: idToken,
+        accessToken: accessToken,
+        email: email,
+        displayName: displayName,
+        photoUrl: photoUrl,
+        googleId: googleId,
+      );
+      final token = res['token'] as String;
+      final userData = res['user'] as Map<String, dynamic>;
+      final user = UserModel.fromJson(userData);
+      await authStorage.saveToken(token);
+      await authStorage.saveUserId(user.id);
+      return user;
+    }
+
     final response = await apiClient.post(
       '/auth/google',
       data: {
@@ -94,12 +146,22 @@ class AuthRepository {
 
   Future<void> logout() async {
     try {
-      await apiClient.post('/auth/logout');
+      if (!_shouldUseSupabase) {
+        await apiClient.post('/auth/logout');
+      }
     } catch (_) {}
     await authStorage.clear();
   }
 
   Future<UserModel> getMe() async {
+    if (_shouldUseSupabase) {
+      final userId = await authStorage.getUserId();
+      if (userId != null) {
+        final userData = await supabaseService!.getMe(userId);
+        return UserModel.fromJson(userData);
+      }
+    }
+
     final response = await apiClient.get('/me');
     final userData = (response is Map<String, dynamic> && response['user'] != null)
         ? response['user'] as Map<String, dynamic>
@@ -112,6 +174,19 @@ class AuthRepository {
     String? bio,
     String? username,
   }) async {
+    if (_shouldUseSupabase) {
+      final userId = await authStorage.getUserId();
+      if (userId != null) {
+        final userData = await supabaseService!.updateProfile(
+          userId,
+          displayName: displayName,
+          bio: bio,
+          username: username,
+        );
+        return UserModel.fromJson(userData);
+      }
+    }
+
     final Map<String, dynamic> data = {};
     if (displayName != null) data['display_name'] = displayName;
     if (bio != null) data['bio'] = bio;
@@ -125,6 +200,14 @@ class AuthRepository {
   }
 
   Future<UserModel> uploadAvatar(File file) async {
+    if (_shouldUseSupabase) {
+      final userId = await authStorage.getUserId();
+      if (userId != null) {
+        final userData = await supabaseService!.uploadAvatar(file, userId);
+        return UserModel.fromJson(userData);
+      }
+    }
+
     final fileName = file.path.split('/').last;
     final ext = fileName.split('.').last.toLowerCase();
     String mime = 'image/jpeg';

@@ -6,7 +6,13 @@ import '../data/friends_repository.dart';
 
 final friendsRepositoryProvider = Provider<FriendsRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return FriendsRepository(apiClient: apiClient);
+  final supabaseService = ref.watch(supabaseServiceProvider);
+  final authStorage = ref.watch(authStorageProvider);
+  return FriendsRepository(
+    apiClient: apiClient,
+    supabaseService: supabaseService,
+    authStorage: authStorage,
+  );
 });
 
 class FriendsState {

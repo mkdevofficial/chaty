@@ -7,6 +7,11 @@ class AppConfig {
   static const String defaultBaseUrl = 'http://185.196.20.220:5050';
   static const String defaultWsUrl = 'ws://185.196.20.220:5050/ws';
 
+  // Supabase Configuration
+  static const String supabaseUrl = 'https://enrskrcxybfisetrzkba.supabase.co';
+  static const String supabaseAnonKey = 'sb_publishable_T9JBCsxOnSHexo5oJRrQHw_yJWwFSse';
+  static const bool useSupabase = true;
+
   static const String googleClientId =
       '361634942618-eru327on27tqpj83evfogahmt6tgg9co.apps.googleusercontent.com';
 

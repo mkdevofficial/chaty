@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yandex_mobileads/mobile_ads.dart';
 import 'core/config/app_config.dart';
 import 'core/localization/app_localizations.dart';
@@ -14,6 +15,18 @@ typedef MobileAds = YandexAds;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase SDK
+  if (AppConfig.useSupabase) {
+    try {
+      await Supabase.initialize(
+        url: AppConfig.supabaseUrl,
+        anonKey: AppConfig.supabaseAnonKey,
+      );
+    } catch (e) {
+      debugPrint('Supabase initialization error: $e');
+    }
+  }
 
   // Initialize Yandex Mobile Ads SDK
   try {

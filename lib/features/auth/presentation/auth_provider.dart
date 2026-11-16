@@ -9,7 +9,12 @@ import '../domain/user_model.dart';
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   final authStorage = ref.watch(authStorageProvider);
-  return AuthRepository(apiClient: apiClient, authStorage: authStorage);
+  final supabaseService = ref.watch(supabaseServiceProvider);
+  return AuthRepository(
+    apiClient: apiClient,
+    authStorage: authStorage,
+    supabaseService: supabaseService,
+  );
 });
 
 enum AuthStatus {

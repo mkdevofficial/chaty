@@ -9,7 +9,14 @@ import '../../domain/message_model.dart';
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   final database = ref.watch(databaseProvider);
-  return ChatRepository(apiClient: apiClient, database: database);
+  final supabaseService = ref.watch(supabaseServiceProvider);
+  final authStorage = ref.watch(authStorageProvider);
+  return ChatRepository(
+    apiClient: apiClient,
+    database: database,
+    supabaseService: supabaseService,
+    authStorage: authStorage,
+  );
 });
 
 class ConversationsState {

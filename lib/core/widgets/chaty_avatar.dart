@@ -6,6 +6,7 @@ import '../providers/core_providers.dart';
 
 class ChatyAvatar extends ConsumerWidget {
   final int? avatarFileId;
+  final String? avatarUrl;
   final String name;
   final double radius;
   final bool isOnline;
@@ -17,6 +18,7 @@ class ChatyAvatar extends ConsumerWidget {
   const ChatyAvatar({
     super.key,
     this.avatarFileId,
+    this.avatarUrl,
     required this.name,
     this.radius = 24,
     this.isOnline = false,
@@ -59,7 +61,28 @@ class ChatyAvatar extends ConsumerWidget {
 
     Widget avatarContent;
 
-    if (avatarFileId != null && avatarFileId! > 0) {
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      avatarContent = CachedNetworkImage(
+        imageUrl: avatarUrl!,
+        imageBuilder: (context, imageProvider) => CircleAvatar(
+          radius: radius,
+          backgroundImage: imageProvider,
+        ),
+        placeholder: (context, url) => CircleAvatar(
+          radius: radius,
+          backgroundColor: _getAvatarBg(name),
+          child: Text(
+            _getInitials(name),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: radius * 0.75,
+            ),
+          ),
+        ),
+        errorWidget: (context, url, error) => _buildInitialsAvatar(),
+      );
+    } else if (avatarFileId != null && avatarFileId! > 0) {
       avatarContent = FutureBuilder<String?>(
         future: authStorage.getToken(),
         builder: (context, snapshot) {

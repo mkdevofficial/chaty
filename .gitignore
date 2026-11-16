@@ -49,6 +49,11 @@ ios/.symlinks/
 ios/Pods/
 ios/Podfile.lock
 
+# Tool artifacts
+.agents/
+.aider-desk/
+skills-lock.json
+
 # Obfuscation & Symbolication
 app.*.symbols
 app.*.map.json
