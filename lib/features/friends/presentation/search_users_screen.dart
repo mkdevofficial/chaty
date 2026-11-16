@@ -7,6 +7,7 @@ import '../../auth/domain/user_model.dart';
 import '../../chat/presentation/providers/conversations_provider.dart';
 import '../../chat/presentation/screens/chat_screen.dart';
 import '../../profile/presentation/user_profile_screen.dart';
+import '../../../../widgets/yandex_banner_ad.dart';
 import 'friends_provider.dart';
 
 class SearchUsersScreen extends ConsumerStatefulWidget {
@@ -159,6 +160,10 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
                     );
                   },
                 ),
+      bottomNavigationBar: const SafeArea(
+        top: false,
+        child: YandexBannerAd(),
+      ),
     );
   }
 }

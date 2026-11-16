@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:yandex_mobileads/mobile_ads.dart';
 import 'core/config/app_config.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/providers/core_providers.dart';
@@ -9,8 +10,17 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'routing/app_router.dart';
 
+typedef MobileAds = YandexAds;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Yandex Mobile Ads SDK
+  try {
+    await MobileAds.initialize();
+  } catch (e) {
+    debugPrint('Yandex Mobile Ads initialization error: $e');
+  }
 
   // Initialize server configuration and local preferences
   await AppConfig.init();

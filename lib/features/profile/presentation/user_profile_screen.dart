@@ -8,6 +8,7 @@ import '../../chat/presentation/providers/conversations_provider.dart';
 import '../../chat/presentation/screens/chat_screen.dart';
 import '../../stories/presentation/stories_provider.dart';
 import '../../stories/presentation/story_viewer_screen.dart';
+import '../../../../widgets/yandex_banner_ad.dart';
 import '../../friends/presentation/friends_provider.dart';
 
 class UserProfileScreen extends ConsumerStatefulWidget {
@@ -233,6 +234,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
             ],
           ],
         ),
+      ),
+      bottomNavigationBar: const SafeArea(
+        top: false,
+        child: YandexBannerAd(),
       ),
     );
   }

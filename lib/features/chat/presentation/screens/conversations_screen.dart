@@ -10,6 +10,7 @@ import '../../../friends/presentation/search_users_screen.dart';
 import '../../../profile/presentation/my_profile_screen.dart';
 import '../../../settings/presentation/settings_screen.dart';
 import '../../../stories/presentation/stories_bar.dart';
+import '../../../../widgets/yandex_banner_ad.dart';
 import '../../domain/message_model.dart';
 import '../providers/conversations_provider.dart';
 import 'chat_screen.dart';
@@ -259,6 +260,10 @@ class ConversationsScreen extends ConsumerWidget {
           },
           child: const Icon(Icons.chat_bubble_outline),
         ),
+      ),
+      bottomNavigationBar: const SafeArea(
+        top: false,
+        child: YandexBannerAd(),
       ),
     );
   }

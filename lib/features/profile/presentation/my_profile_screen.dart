@@ -8,6 +8,7 @@ import '../../../../core/utils/permissions.dart';
 import '../../../../core/widgets/chaty_avatar.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../friends/presentation/friends_list_screen.dart';
+import '../../../../widgets/yandex_banner_ad.dart';
 import '../../friends/presentation/friends_provider.dart';
 
 class MyProfileScreen extends ConsumerStatefulWidget {
@@ -302,6 +303,10 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ],
           ),
         ),
+      ),
+      bottomNavigationBar: const SafeArea(
+        top: false,
+        child: YandexBannerAd(),
       ),
     );
   }
