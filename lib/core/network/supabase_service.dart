@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
@@ -324,12 +323,10 @@ class SupabaseService {
         .eq('user2_id', u2)
         .maybeSingle();
 
-    if (conv == null) {
-      conv = await client.from('conversations').insert({
-        'user1_id': u1,
-        'user2_id': u2,
-      }).select().single();
-    }
+    conv ??= await client.from('conversations').insert({
+      'user1_id': u1,
+      'user2_id': u2,
+    }).select().single();
 
     final convId = conv['id'] as int;
 
@@ -674,6 +671,14 @@ class SupabaseService {
       'viewer_id': viewerId,
       'viewed_at': DateTime.now().toUtc().toIso8601String(),
     });
+  }
+
+  Future<void> deleteStory(int storyId, int userId) async {
+    await client
+        .from('stories')
+        .delete()
+        .eq('id', storyId)
+        .eq('user_id', userId);
   }
 
   // ===========================================================================
